@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FOLIO STOCK - สรุปผล</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <span class="nav-brand">📦 FOLIO STOCK</span>
+    <div class="nav-right">
+      <span class="nav-username" id="navUserName"></span>
+      <span class="nav-role" id="navRole"></span>
+      <button class="btn btn-secondary btn-sm" onclick="logout()">ออกจากระบบ</button>
+    </div>
+  </nav>
+  <div class="admin-tabs">
+    <a href="admin-today.html" class="tab-link">📋 งานวันนี้</a>
+    <a href="admin-summary.html" class="tab-link active">📊 สรุปผล</a>
+    <a href="admin-assign.html" class="tab-link">📝 มอบหมายงาน</a>
+    <a href="admin-base.html" class="tab-link">⚙️ จัดการระบบ</a>
+  </div>
+
+  <div class="main">
+    <div class="flex-between mb-24">
+      <h1 class="page-title">📊 สรุปผลการดำเนินงาน</h1>
+      <button class="btn btn-outline btn-sm" onclick="loadSummary()">🔄 รีเฟรช</button>
+    </div>
+
+    <!-- stat cards -->
+    <div class="stats-grid mb-24">
+      <div class="stat-card blue">
+        <div class="stat-label">งานทั้งหมด</div>
+        <div class="stat-value" id="sTotal">-</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">เสร็จแล้ว</div>
+        <div class="stat-value" id="sDone">-</div>
+        <div class="stat-sub" id="sDonePct"></div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-label">ยังค้างอยู่</div>
+        <div class="stat-value" id="sPending">-</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">ใกล้ Deadline</div>
+        <div class="stat-value" id="sNear">-</div>
+        <div class="stat-sub">≤ 3 วัน</div>
+      </div>
+    </div>
+
+    <!-- overall progress -->
+    <div class="card mb-24">
+      <div class="card-header"><span class="card-title">ความคืบหน้ารวม</span></div>
+      <div class="card-body">
+        <div id="overallProgress" style="display:flex;align-items:center;gap:16px">
+          <div class="progress-wrap" style="flex:1;height:16px">
+            <div class="progress-bar p100" id="overallBar" style="width:0%"></div>
+          </div>
+          <span id="overallPct" style="font-size:20px;font-weight:700;color:#16A34A;min-width:60px">0%</span>
+        </div>
+        <div id="overallText" style="margin-top:8px;color:#64748B;font-size:14px"></div>
+      </div>
+    </div>
+
+    <div class="grid-2 mb-24">
+      <!-- by person -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">สถิติรายคน</span></div>
+        <div id="byPersonContainer">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- by type -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">สถิติตามประเภทงาน</span></div>
+        <div id="byTypeContainer">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    let user;
+
+    async function init() {
+      user = requireAuth('admin');
+      if (!user) return;
+      setNavUser(user);
+      await loadSummary();
+    }
+
+    async function loadSummary() {
+      document.getElementById('byPersonContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      document.getElementById('byTypeContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      try {
+        const r = await apiGet({ action: 'getSummary' });
+        if (!r.success) { alert('โหลดข้อมูลไม่สำเร็จ'); return; }
+
+        document.getElementById('sTotal').textContent = r.total;
+        document.getElementById('sDone').textContent = r.done;
+        document.getElementById('sPending').textContent = r.pending;
+        document.getElementById('sNear').textContent = r.nearDeadline;
+
+        const pct = r.total > 0 ? Math.round(r.done / r.total * 100) : 0;
+        document.getElementById('sDonePct').textContent = pct + '%';
+        document.getElementById('overallBar').style.width = pct + '%';
+        document.getElementById('overallPct').textContent = pct + '%';
+        document.getElementById('overallText').textContent = `เสร็จแล้ว ${r.done} จาก ${r.total} งาน`;
+
+        renderByPerson(r.byPerson);
+        renderByType(r.byType);
+      } catch (e) {
+        document.getElementById('byPersonContainer').innerHTML = `<div class="alert alert-danger" style="margin:16px">${e.message}</div>`;
+      }
+    }
+
+    function renderByPerson(data) {
+      const entries = Object.entries(data).sort((a,b) => b[1].total - a[1].total);
+      if (!entries.length) {
+        document.getElementById('byPersonContainer').innerHTML = '<div class="empty-state"><span class="icon">👤</span><p>ไม่มีข้อมูล</p></div>';
+        return;
+      }
+      const rows = entries.map(([name, s]) => {
+        const pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
+        return `<tr>
+          <td><span class="badge badge-planning">${escHtml(name)}</span></td>
+          <td style="text-align:center;font-weight:700">${s.total}</td>
+          <td style="text-align:center;color:#16A34A;font-weight:600">${s.done}</td>
+          <td style="text-align:center;color:#D97706;font-weight:600">${s.pending}</td>
+          <td style="min-width:120px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="progress-wrap" style="flex:1">
+                <div class="progress-bar ${pct===100?'p100':pct>=75?'p75':pct>=50?'p50':'p25'}" style="width:${pct}%"></div>
+              </div>
+              <span style="font-size:12px;color:#64748B;min-width:30px">${pct}%</span>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById('byPersonContainer').innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>ชื่อ</th><th style="text-align:center">รวม</th>
+              <th style="text-align:center">เสร็จ</th><th style="text-align:center">ค้าง</th>
+              <th>ความคืบหน้า</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    function renderByType(data) {
+      const entries = Object.entries(data).sort((a,b) => b[1].total - a[1].total);
+      if (!entries.length) {
+        document.getElementById('byTypeContainer').innerHTML = '<div class="empty-state"><span class="icon">📦</span><p>ไม่มีข้อมูล</p></div>';
+        return;
+      }
+      const rows = entries.map(([type, s]) => {
+        const pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
+        return `<tr>
+          <td style="font-weight:500">${escHtml(type)}</td>
+          <td style="text-align:center;font-weight:700">${s.total}</td>
+          <td style="text-align:center;color:#16A34A;font-weight:600">${s.done}</td>
+          <td style="text-align:center;color:#D97706;font-weight:600">${s.pending}</td>
+          <td style="min-width:120px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="progress-wrap" style="flex:1">
+                <div class="progress-bar ${pct===100?'p100':pct>=50?'p50':'p25'}" style="width:${pct}%"></div>
+              </div>
+              <span style="font-size:12px;color:#64748B;min-width:30px">${pct}%</span>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById('byTypeContainer').innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>ประเภท</th><th style="text-align:center">รวม</th>
+              <th style="text-align:center">เสร็จ</th><th style="text-align:center">ค้าง</th>
+              <th>ความคืบหน้า</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    init();
+  </script>
+</body>
+</html>

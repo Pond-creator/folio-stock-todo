@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FOLIO STOCK - ภาพรวมงาน</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <span class="nav-brand">📦 FOLIO STOCK</span>
+    <div class="nav-right">
+      <span class="nav-username" id="navUserName"></span>
+      <span class="nav-role" id="navRole"></span>
+      <button class="btn btn-secondary btn-sm" onclick="logout()">ออกจากระบบ</button>
+    </div>
+  </nav>
+
+  <!-- Tab bar -->
+  <div class="admin-tabs">
+    <a href="#" class="tab-link active" id="tabToday" onclick="switchTab('today');return false">📋 งานวันนี้</a>
+    <a href="#" class="tab-link" id="tabSummary" onclick="switchTab('summary');return false">📊 สรุปผล</a>
+  </div>
+
+  <div class="main">
+
+    <!-- ===== TODAY TAB ===== -->
+    <div id="sectionToday">
+      <div class="stats-grid mb-24">
+        <div class="stat-card blue"><div class="stat-label">งานทั้งหมด</div><div class="stat-value" id="sTotal">-</div></div>
+        <div class="stat-card amber"><div class="stat-label">กำลังดำเนินการ</div><div class="stat-value" id="sPending">-</div></div>
+        <div class="stat-card green"><div class="stat-label">เสร็จแล้ว</div><div class="stat-value" id="sDone">-</div></div>
+        <div class="stat-card red"><div class="stat-label">ใกล้ Deadline</div><div class="stat-value" id="sNear">-</div></div>
+      </div>
+
+      <div id="nearAlert"></div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📋 งานที่ยังไม่เสร็จทั้งหมด</span>
+          <button class="btn btn-outline btn-sm" onclick="loadAll()">🔄 รีเฟรช</button>
+        </div>
+        <div class="card-body" style="padding-top:12px;padding-bottom:12px">
+          <div class="filter-bar">
+            <select id="filterPerson" onchange="applyFilter()">
+              <option value="">ทุกคน</option>
+            </select>
+            <select id="filterType" onchange="applyFilter()">
+              <option value="">ทุกประเภท</option>
+            </select>
+            <select id="filterPriority" onchange="applyFilter()">
+              <option value="">ทุกระดับ</option>
+              <option>ด่วนมาก</option>
+              <option>ไม่เร่งด่วนแต่สำคัญ</option>
+              <option>ไม่่สำคัญแต่เร่งด่วน</option>
+              <option>รอได้ไม่สำคัญ</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+              <input type="checkbox" id="showDone" onchange="applyFilter()"> แสดงที่เสร็จแล้วด้วย
+            </label>
+          </div>
+        </div>
+        <div id="taskContainer">
+          <div class="loading"><div class="spinner"></div> กำลังโหลด...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SUMMARY TAB ===== -->
+    <div id="sectionSummary" style="display:none">
+      <div class="stats-grid mb-24">
+        <div class="stat-card blue"><div class="stat-label">งานทั้งหมด</div><div class="stat-value" id="ss_Total">-</div></div>
+        <div class="stat-card green"><div class="stat-label">เสร็จแล้ว</div><div class="stat-value" id="ss_Done">-</div><div class="stat-sub" id="ss_DonePct"></div></div>
+        <div class="stat-card amber"><div class="stat-label">ยังค้างอยู่</div><div class="stat-value" id="ss_Pending">-</div></div>
+        <div class="stat-card red"><div class="stat-label">ใกล้ Deadline</div><div class="stat-value" id="ss_Near">-</div><div class="stat-sub">≤ 3 วัน</div></div>
+      </div>
+
+      <div class="card mb-24">
+        <div class="card-header"><span class="card-title">ความคืบหน้ารวม</span></div>
+        <div class="card-body">
+          <div style="display:flex;align-items:center;gap:16px">
+            <div class="progress-wrap" style="flex:1;height:16px">
+              <div class="progress-bar p100" id="overallBar" style="width:0%"></div>
+            </div>
+            <span id="overallPct" style="font-size:20px;font-weight:700;color:#16A34A;min-width:60px">0%</span>
+          </div>
+          <div id="overallText" style="margin-top:8px;color:#64748B;font-size:14px"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><span class="card-title">สถิติรายคน</span></div>
+          <div id="byPersonContainer"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">สถิติตามประเภทงาน</span></div>
+          <div id="byTypeContainer"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    let user, allTasks = [];
+
+    async function init() {
+      user = requireAuth(['staff', 'admin']);
+      if (!user) return;
+      setNavUser(user);
+      await loadAll();
+    }
+
+    async function loadAll() {
+      showLoading('taskContainer');
+      try {
+        const [tr, sr] = await Promise.all([
+          apiGet({ action: 'getTasks', role: 'admin' }),
+          apiGet({ action: 'getSummary' })
+        ]);
+        if (tr.success) {
+          allTasks = tr.tasks;
+          buildFilters();
+          applyFilter();
+        }
+        if (sr.success) updateStats(sr);
+      } catch (e) { showError('taskContainer', e.message); }
+    }
+
+    function updateStats(s) {
+      document.getElementById('sTotal').textContent = s.total;
+      document.getElementById('sPending').textContent = s.pending;
+      document.getElementById('sDone').textContent = s.done;
+      document.getElementById('sNear').textContent = s.nearDeadline;
+
+      document.getElementById('ss_Total').textContent = s.total;
+      document.getElementById('ss_Done').textContent = s.done;
+      document.getElementById('ss_Pending').textContent = s.pending;
+      document.getElementById('ss_Near').textContent = s.nearDeadline;
+
+      const pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
+      document.getElementById('ss_DonePct').textContent = pct + '%';
+      document.getElementById('overallBar').style.width = pct + '%';
+      document.getElementById('overallPct').textContent = pct + '%';
+      document.getElementById('overallText').textContent = `เสร็จแล้ว ${s.done} จาก ${s.total} งาน`;
+
+      const near = allTasks.filter(t => t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย');
+      document.getElementById('nearAlert').innerHTML = near.length
+        ? `<div class="alert alert-danger" style="margin-bottom:16px">🔔 งานใกล้ Deadline: ${near.map(t => `<strong>${escHtml(t.task)}</strong>`).join(', ')}</div>`
+        : '';
+
+      renderByPerson(s.byPerson);
+      renderByType(s.byType);
+    }
+
+    function buildFilters() {
+      const persons = [...new Set(allTasks.flatMap(t => t.assignTo.split(',').map(s => s.trim()).filter(Boolean)))].sort();
+      const types = [...new Set(allTasks.map(t => t.type).filter(Boolean))].sort();
+      document.getElementById('filterPerson').innerHTML = '<option value="">ทุกคน</option>' + persons.map(p => `<option>${p}</option>`).join('');
+      document.getElementById('filterType').innerHTML = '<option value="">ทุกประเภท</option>' + types.map(t => `<option>${t}</option>`).join('');
+    }
+
+    function applyFilter() {
+      const person = document.getElementById('filterPerson').value;
+      const type = document.getElementById('filterType').value;
+      const priority = document.getElementById('filterPriority').value;
+      const showDone = document.getElementById('showDone').checked;
+      const filtered = allTasks.filter(t => {
+        if (!showDone && t.status === 'เสร็จเรียบร้อย') return false;
+        if (person && !t.assignTo.split(',').map(s => s.trim()).includes(person)) return false;
+        if (type && t.type !== type) return false;
+        if (priority && t.priority !== priority) return false;
+        return true;
+      });
+      renderTasks(filtered);
+    }
+
+    function renderTasks(tasks) {
+      if (!tasks.length) {
+        document.getElementById('taskContainer').innerHTML =
+          '<div class="empty-state"><span class="icon">✅</span><p>ไม่มีงานที่ตรงเงื่อนไข</p></div>';
+        return;
+      }
+      const rows = tasks.map(t => `
+        <tr class="${t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย' ? 'near-deadline-row' : ''}">
+          <td style="color:#94A3B8;font-size:13px;text-align:center">${t.seq}</td>
+          <td>
+            <div class="task-name">${escHtml(t.task)}</div>
+            <div class="text-muted" style="font-size:12px">${t.dateAdded || ''}</div>
+          </td>
+          <td><span style="font-size:13px">${escHtml(t.type || '-')}</span></td>
+          <td>${badgePriority(t.priority)}</td>
+          <td>
+            <div style="display:flex;flex-wrap:wrap;gap:4px">
+              ${t.assignTo.split(',').map(p => p.trim()).filter(Boolean)
+                .map(p => `<span class="badge badge-planning" style="font-size:11px">${escHtml(p)}</span>`).join('')}
+            </div>
+          </td>
+          <td>
+            <div style="font-size:13px;font-weight:500">${t.deadline || '-'}</div>
+            ${daysLeftHtml(t.daysLeft)}
+          </td>
+          <td>${badgeStatus(t.status)}</td>
+          <td style="min-width:100px">${progressBar(t.percent)}</td>
+        </tr>`).join('');
+
+      document.getElementById('taskContainer').innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>#</th><th>ภารกิจ / งาน</th><th>ประเภท</th><th>ความสำคัญ</th>
+              <th>Assign to</th><th>Deadline</th><th>สถานะ</th><th>ความคืบหน้า</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    function renderByPerson(data) {
+      const entries = Object.entries(data).sort((a, b) => b[1].total - a[1].total);
+      if (!entries.length) { document.getElementById('byPersonContainer').innerHTML = '<div class="empty-state"><span class="icon">👤</span><p>ไม่มีข้อมูล</p></div>'; return; }
+      const rows = entries.map(([name, s]) => {
+        const pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
+        return `<tr>
+          <td><span class="badge badge-planning">${escHtml(name)}</span></td>
+          <td style="text-align:center;font-weight:700">${s.total}</td>
+          <td style="text-align:center;color:#16A34A;font-weight:600">${s.done}</td>
+          <td style="text-align:center;color:#D97706;font-weight:600">${s.pending}</td>
+          <td style="min-width:120px"><div style="display:flex;align-items:center;gap:8px">
+            <div class="progress-wrap" style="flex:1"><div class="progress-bar p50" style="width:${pct}%;background:${pct===100?'#16A34A':'#3B82F6'}"></div></div>
+            <span style="font-size:12px;color:#64748B">${pct}%</span>
+          </div></td>
+        </tr>`;
+      }).join('');
+      document.getElementById('byPersonContainer').innerHTML = `<div class="table-wrap"><table>
+        <thead><tr><th>ชื่อ</th><th style="text-align:center">รวม</th><th style="text-align:center">เสร็จ</th><th style="text-align:center">ค้าง</th><th>ความคืบหน้า</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`;
+    }
+
+    function renderByType(data) {
+      const entries = Object.entries(data).sort((a, b) => b[1].total - a[1].total);
+      if (!entries.length) { document.getElementById('byTypeContainer').innerHTML = '<div class="empty-state"><span class="icon">📦</span><p>ไม่มีข้อมูล</p></div>'; return; }
+      const rows = entries.map(([type, s]) => {
+        const pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
+        return `<tr>
+          <td style="font-weight:500">${escHtml(type)}</td>
+          <td style="text-align:center;font-weight:700">${s.total}</td>
+          <td style="text-align:center;color:#16A34A;font-weight:600">${s.done}</td>
+          <td style="text-align:center;color:#D97706;font-weight:600">${s.pending}</td>
+          <td style="min-width:120px"><div style="display:flex;align-items:center;gap:8px">
+            <div class="progress-wrap" style="flex:1"><div class="progress-bar p50" style="width:${pct}%;background:${pct===100?'#16A34A':'#3B82F6'}"></div></div>
+            <span style="font-size:12px;color:#64748B">${pct}%</span>
+          </div></td>
+        </tr>`;
+      }).join('');
+      document.getElementById('byTypeContainer').innerHTML = `<div class="table-wrap"><table>
+        <thead><tr><th>ประเภท</th><th style="text-align:center">รวม</th><th style="text-align:center">เสร็จ</th><th style="text-align:center">ค้าง</th><th>ความคืบหน้า</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`;
+    }
+
+    function switchTab(tab) {
+      const isToday = tab === 'today';
+      document.getElementById('sectionToday').style.display = isToday ? '' : 'none';
+      document.getElementById('sectionSummary').style.display = isToday ? 'none' : '';
+      document.getElementById('tabToday').className = 'tab-link' + (isToday ? ' active' : '');
+      document.getElementById('tabSummary').className = 'tab-link' + (!isToday ? ' active' : '');
+    }
+
+    function escHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    init();
+  </script>
+</body>
+</html>

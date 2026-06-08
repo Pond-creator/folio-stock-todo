@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FOLIO STOCK - งานของฉัน</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* ===== MOBILE USER PAGE ===== */
+    .user-header {
+      background: linear-gradient(135deg, #1E40AF, #3B82F6);
+      color: white;
+      padding: 20px 16px 16px;
+    }
+    .user-header .greeting { font-size: 13px; opacity: .8; margin-bottom: 2px; }
+    .user-header .name { font-size: 22px; font-weight: 700; }
+
+    /* stat row */
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      padding: 12px 16px;
+      background: white;
+      border-bottom: 1px solid #F1F5F9;
+    }
+    .stat-mini { text-align: center; }
+    .stat-mini .val { font-size: 22px; font-weight: 700; line-height: 1; }
+    .stat-mini .lbl { font-size: 11px; color: #64748B; margin-top: 2px; }
+    .stat-mini.blue .val  { color: #1E40AF; }
+    .stat-mini.amber .val { color: #D97706; }
+    .stat-mini.green .val { color: #16A34A; }
+    .stat-mini.red .val   { color: #DC2626; }
+
+    /* view toggle */
+    .view-toggle {
+      display: flex;
+      background: #F1F5F9;
+      margin: 12px 16px;
+      border-radius: 10px;
+      padding: 3px;
+    }
+    .view-btn {
+      flex: 1;
+      text-align: center;
+      padding: 8px 4px;
+      border-radius: 8px;
+      border: none;
+      background: none;
+      font-family: Sarabun, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #64748B;
+      transition: all .15s;
+    }
+    .view-btn.active {
+      background: white;
+      color: #1E40AF;
+      box-shadow: 0 1px 4px rgba(0,0,0,.1);
+    }
+
+    /* task card */
+    .task-cards { padding: 0 12px 80px; display: flex; flex-direction: column; gap: 10px; }
+    .task-card {
+      background: white;
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+      border-left: 4px solid #CBD5E1;
+    }
+    .task-card.urgent   { border-left-color: #EF4444; }
+    .task-card.important{ border-left-color: #3B82F6; }
+    .task-card.rush     { border-left-color: #F59E0B; }
+    .task-card.near-dl  { background: #FFF7F7; }
+
+    .task-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .task-card-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+    .task-card-name { font-size: 15px; font-weight: 600; color: #0F172A; margin-bottom: 8px; line-height: 1.4; }
+
+    .task-card-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .meta-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #64748B; }
+    .meta-icon { font-size: 13px; }
+
+    .task-card-progress { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .task-card-progress .progress-wrap { flex: 1; height: 6px; }
+    .task-card-progress .pct-label { font-size: 12px; font-weight: 600; color: #374151; min-width: 32px; text-align: right; }
+
+    /* deadline pill */
+    .dl-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 99px; font-size: 12px; font-weight: 600;
+    }
+    .dl-pill.critical { background: #FEE2E2; color: #991B1B; }
+    .dl-pill.warning  { background: #FEF3C7; color: #92400E; }
+    .dl-pill.ok       { background: #DCFCE7; color: #166534; }
+    .dl-pill.none     { background: #F1F5F9; color: #64748B; }
+
+    /* empty */
+    .empty-card { text-align: center; padding: 48px 24px; color: #94A3B8; }
+    .empty-card .icon { font-size: 52px; display: block; margin-bottom: 10px; }
+    .empty-card p { font-size: 15px; }
+
+    /* deadline alert */
+    .dl-alert {
+      margin: 0 12px 10px;
+      padding: 10px 14px;
+      background: #FEE2E2; border: 1px solid #FECACA;
+      border-radius: 10px; font-size: 13px; color: #991B1B;
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+
+    /* refresh button */
+    .refresh-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 16px 4px; gap: 8px;
+    }
+    .section-count { font-size: 13px; color: #64748B; font-weight: 500; }
+
+    /* loading */
+    .loading-card { text-align: center; padding: 40px 24px; }
+
+    /* desktop: switch to table layout */
+    @media (min-width: 768px) {
+      .user-header { padding: 24px 32px 20px; }
+      .stat-row { padding: 16px 32px; gap: 16px; }
+      .stat-mini .val { font-size: 28px; }
+      .stat-mini .lbl { font-size: 13px; }
+      .view-toggle { margin: 16px 32px; }
+      .task-cards { padding: 0 28px 40px; }
+      .task-card { padding: 16px 20px; }
+      .task-card-meta { grid-template-columns: repeat(3, 1fr); }
+      .meta-item { font-size: 13px; }
+      .task-card-name { font-size: 16px; }
+      .refresh-row { padding: 8px 32px 4px; }
+    }
+  </style>
+</head>
+<body style="background:#F8FAFC">
+
+  <!-- HEADER -->
+  <div class="user-header">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div>
+        <div class="greeting">📦 FOLIO STOCK</div>
+        <div class="name" id="userName">สวัสดี...</div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="logout()"
+        style="background:rgba(255,255,255,.2);color:white;border-color:rgba(255,255,255,.4);margin-top:4px">
+        ออก
+      </button>
+    </div>
+  </div>
+
+  <!-- STAT ROW -->
+  <div class="stat-row">
+    <div class="stat-mini blue">
+      <div class="val" id="sTotal">-</div>
+      <div class="lbl">งานทั้งหมด</div>
+    </div>
+    <div class="stat-mini amber">
+      <div class="val" id="sPending">-</div>
+      <div class="lbl">ค้างอยู่</div>
+    </div>
+    <div class="stat-mini green">
+      <div class="val" id="sDone">-</div>
+      <div class="lbl">เสร็จแล้ว</div>
+    </div>
+    <div class="stat-mini red">
+      <div class="val" id="sNear">-</div>
+      <div class="lbl">ใกล้ deadline</div>
+    </div>
+  </div>
+
+  <!-- VIEW TOGGLE -->
+  <div class="view-toggle">
+    <button class="view-btn active" id="btnToday" onclick="switchView('today')">
+      🔥 งานวันนี้
+    </button>
+    <button class="view-btn" id="btnFuture" onclick="switchView('future')">
+      📅 งานทั้งหมด
+    </button>
+  </div>
+
+  <!-- DEADLINE ALERT -->
+  <div id="dlAlert"></div>
+
+  <!-- REFRESH ROW -->
+  <div class="refresh-row">
+    <span class="section-count" id="taskCount"></span>
+    <button class="btn btn-outline btn-sm" onclick="loadTasks()" style="font-size:12px">🔄 รีเฟรช</button>
+  </div>
+
+  <!-- CARDS -->
+  <div id="taskCards" class="task-cards">
+    <div class="loading-card"><div class="spinner" style="margin:0 auto"></div></div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    let user, allTasks = [], currentView = 'today';
+
+    async function init() {
+      user = requireAuth('user');
+      if (!user) return;
+      document.getElementById('userName').textContent = `สวัสดี, ${user.displayName || user.username} 👋`;
+      await loadTasks();
+    }
+
+    async function loadTasks() {
+      document.getElementById('taskCards').innerHTML =
+        '<div class="loading-card"><div class="spinner" style="margin:0 auto"></div></div>';
+      try {
+        const r = await apiGet({ action: 'getTasks', username: user.username, role: user.role });
+        if (r.success) {
+          allTasks = r.tasks;
+          updateStats();
+          showDlAlert();
+          renderView();
+        } else {
+          document.getElementById('taskCards').innerHTML =
+            `<div class="dl-alert">⚠️ ${r.error || 'โหลดข้อมูลไม่สำเร็จ'}</div>`;
+        }
+      } catch (e) {
+        document.getElementById('taskCards').innerHTML =
+          `<div class="dl-alert">⚠️ ${e.message}</div>`;
+      }
+    }
+
+    function updateStats() {
+      const done  = allTasks.filter(t => t.status === 'เสร็จเรียบร้อย').length;
+      const near  = allTasks.filter(t => t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย').length;
+      document.getElementById('sTotal').textContent   = allTasks.length;
+      document.getElementById('sPending').textContent = allTasks.length - done;
+      document.getElementById('sDone').textContent    = done;
+      document.getElementById('sNear').textContent    = near;
+    }
+
+    function showDlAlert() {
+      const near = allTasks.filter(t => t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย');
+      document.getElementById('dlAlert').innerHTML = near.length
+        ? `<div class="dl-alert">⚠️ มีงานใกล้ Deadline ${near.length} รายการ! กรุณาเร่งดำเนินการ</div>` : '';
+    }
+
+    function switchView(view) {
+      currentView = view;
+      document.getElementById('btnToday').classList.toggle('active', view === 'today');
+      document.getElementById('btnFuture').classList.toggle('active', view === 'future');
+      renderView();
+    }
+
+    function renderView() {
+      let tasks;
+      if (currentView === 'today') {
+        // งานที่ยังไม่เสร็จ เรียงตาม deadline ใกล้ก่อน
+        tasks = allTasks
+          .filter(t => t.status !== 'เสร็จเรียบร้อย')
+          .sort((a, b) => {
+            if (a.daysLeft === null) return 1;
+            if (b.daysLeft === null) return -1;
+            return a.daysLeft - b.daysLeft;
+          });
+      } else {
+        // งานทั้งหมด — pending ก่อน แล้วค่อยเสร็จ
+        tasks = [
+          ...allTasks.filter(t => t.status !== 'เสร็จเรียบร้อย').sort((a,b)=>(a.daysLeft??999)-(b.daysLeft??999)),
+          ...allTasks.filter(t => t.status === 'เสร็จเรียบร้อย')
+        ];
+      }
+
+      const label = currentView === 'today' ? `งานที่ต้องทำ (${tasks.length} รายการ)` : `งานทั้งหมด (${tasks.length} รายการ)`;
+      document.getElementById('taskCount').textContent = label;
+
+      if (!tasks.length) {
+        document.getElementById('taskCards').innerHTML =
+          `<div class="empty-card"><span class="icon">${currentView==='today'?'🎉':'📋'}</span><p>${currentView==='today'?'ไม่มีงานค้างอยู่ เยี่ยมมาก!':'ยังไม่มีงานที่ได้รับมอบหมาย'}</p></div>`;
+        return;
+      }
+
+      document.getElementById('taskCards').innerHTML = tasks.map(t => taskCard(t)).join('');
+    }
+
+    function taskCard(t) {
+      const pMap = { 'ด่วนมาก':'urgent','ไม่เร่งด่วนแต่สำคัญ':'important','ไม่่สำคัญแต่เร่งด่วน':'rush','ไม่สำคัญแต่เร่งด่วน':'rush' };
+      const cardClass = pMap[t.priority] || '';
+      const nearClass = t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย' ? ' near-dl' : '';
+      const pct = parseInt(t.percent) || 0;
+      const barClass = PERCENT_PROGRESS[t.percent] || 'p0';
+
+      return `
+        <div class="task-card ${cardClass}${nearClass}">
+          <div class="task-card-top">
+            <div class="task-card-badges">
+              ${badgePriority(t.priority)}
+              ${badgeStatus(t.status)}
+            </div>
+          </div>
+          <div class="task-card-name">${escHtml(t.task)}</div>
+          <div class="task-card-meta">
+            <div class="meta-item">
+              <span class="meta-icon">📦</span>
+              <span>${escHtml(t.type || '-')}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-icon">⏰</span>
+              <span>${escHtml(t.timeSlot || '-')}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-icon">📅</span>
+              <span>${t.deadline ? dlPill(t.daysLeft, t.deadline) : '<span style="color:#94A3B8">ไม่ระบุ</span>'}</span>
+            </div>
+          </div>
+          <div class="task-card-progress">
+            <div class="progress-wrap">
+              <div class="progress-bar ${barClass}" style="width:${pct}%"></div>
+            </div>
+            <span class="pct-label">${t.percent || '0%'}</span>
+          </div>
+        </div>`;
+    }
+
+    function dlPill(days, date) {
+      if (days === null || days === undefined || days === '') return `<span class="dl-pill none">${date}</span>`;
+      if (days < 0) return `<span class="dl-pill critical">เกิน ${Math.abs(days)} วัน</span>`;
+      if (days === 0) return `<span class="dl-pill critical">⚡ วันนี้!</span>`;
+      if (days <= 3) return `<span class="dl-pill critical">🔴 ${date} (${days} วัน)</span>`;
+      if (days <= 7) return `<span class="dl-pill warning">🟡 ${date} (${days} วัน)</span>`;
+      return `<span class="dl-pill ok">${date}</span>`;
+    }
+
+    function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FOLIO STOCK - เข้าสู่ระบบ</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="login-page">
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-logo">
+        <span class="logo-icon">📦</span>
+        <h1>FOLIO STOCK</h1>
+        <p>ระบบจัดการงาน Stock Team</p>
+      </div>
+      <form id="loginForm">
+        <div class="form-group">
+          <label>ชื่อผู้ใช้</label>
+          <input type="text" id="username" placeholder="กรอกชื่อผู้ใช้" autocomplete="username" required>
+        </div>
+        <div class="form-group">
+          <label>รหัสผ่าน</label>
+          <input type="password" id="password" placeholder="กรอกรหัสผ่าน" autocomplete="current-password" required>
+        </div>
+        <div id="loginError" class="error-msg" style="display:none"></div>
+        <button type="submit" class="btn btn-primary btn-full" id="loginBtn" style="margin-top:8px">
+          เข้าสู่ระบบ
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    // Redirect if already logged in
+    const existing = getSession();
+    if (existing) location.href = existing.role === 'admin' ? 'admin-today.html' : existing.role === 'staff' ? 'staff.html' : 'user.html';
+
+    document.getElementById('loginForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn');
+      const errEl = document.getElementById('loginError');
+      btn.textContent = 'กำลังเข้าสู่ระบบ...';
+      btn.disabled = true;
+      errEl.style.display = 'none';
+      try {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        const result = await apiGet({ action: 'login', username, password });
+        if (result.success) {
+          saveSession(result);
+          const dest = result.role === 'admin' ? 'admin-today.html' : result.role === 'staff' ? 'staff.html' : 'user.html';
+          location.href = dest;
+        } else {
+          errEl.textContent = result.message || 'เข้าสู่ระบบไม่สำเร็จ';
+          errEl.style.display = 'block';
+          btn.textContent = 'เข้าสู่ระบบ';
+          btn.disabled = false;
+        }
+      } catch (err) {
+        errEl.textContent = 'เกิดข้อผิดพลาด: ' + err.message;
+        errEl.style.display = 'block';
+        btn.textContent = 'เข้าสู่ระบบ';
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

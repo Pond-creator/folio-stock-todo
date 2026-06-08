@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FOLIO STOCK - จัดการระบบ</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <span class="nav-brand">📦 FOLIO STOCK</span>
+    <div class="nav-right">
+      <span class="nav-username" id="navUserName"></span>
+      <span class="nav-role" id="navRole"></span>
+      <button class="btn btn-secondary btn-sm" onclick="logout()">ออกจากระบบ</button>
+    </div>
+  </nav>
+  <div class="admin-tabs">
+    <a href="admin-today.html" class="tab-link">📋 งานวันนี้</a>
+    <a href="admin-summary.html" class="tab-link">📊 สรุปผล</a>
+    <a href="admin-assign.html" class="tab-link">📝 มอบหมายงาน</a>
+    <a href="admin-base.html" class="tab-link active">⚙️ จัดการระบบ</a>
+  </div>
+
+  <div class="main">
+    <div class="flex-between mb-24">
+      <h1 class="page-title">⚙️ จัดการข้อมูลระบบ</h1>
+      <button class="btn btn-outline btn-sm" onclick="loadBase()">🔄 รีเฟรช</button>
+    </div>
+
+    <div id="baseContainer">
+      <div class="loading"><div class="spinner"></div> กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    let user, baseData = {};
+
+    const CATEGORIES = [
+      { key: 'taskTypes',  label: '📦 ประเภทงาน',        editable: true },
+      { key: 'priorities', label: '🔥 ความสำคัญ',         editable: false },
+      { key: 'statuses',   label: '📊 สถานะ',             editable: false },
+      { key: 'assignees',  label: '👤 ทีมงาน (Assignee)', editable: true },
+      { key: 'timeSlots',  label: '⏰ ช่วงเวลาดำเนินงาน', editable: true },
+    ];
+
+    async function init() {
+      user = requireAuth('admin');
+      if (!user) return;
+      setNavUser(user);
+      await loadBase();
+    }
+
+    async function loadBase() {
+      document.getElementById('baseContainer').innerHTML = '<div class="loading"><div class="spinner"></div> กำลังโหลด...</div>';
+      try {
+        const r = await apiGet({ action: 'getBase' });
+        if (!r.success) { document.getElementById('baseContainer').innerHTML = `<div class="alert alert-danger">${r.error}</div>`; return; }
+        baseData = r.base;
+        renderBase();
+      } catch (e) {
+        document.getElementById('baseContainer').innerHTML = `<div class="alert alert-danger">⚠️ ${e.message}</div>`;
+      }
+    }
+
+    function renderBase() {
+      const html = CATEGORIES.map(cat => {
+        const items = cat.key === 'statuses'
+          ? (baseData.statuses || []).map(s => s.label || s)
+          : (baseData[cat.key] || []);
+
+        const tags = items.map(item => `
+          <span class="base-tag">
+            ${escHtml(item)}
+            ${cat.editable ? `<button class="base-tag-del" onclick="deleteItem('${cat.key}', '${escHtml(item)}')" title="ลบ">✕</button>` : ''}
+          </span>`).join('');
+
+        const addForm = cat.editable ? `
+          <div style="display:flex;gap:8px;margin-top:12px;max-width:360px">
+            <input type="text" id="input_${cat.key}" placeholder="เพิ่มรายการใหม่..."
+              style="flex:1;padding:7px 11px;border:1.5px solid #E2E8F0;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px"
+              onkeydown="if(event.key==='Enter')addItem('${cat.key}')">
+            <button class="btn btn-primary btn-sm" onclick="addItem('${cat.key}')">＋ เพิ่ม</button>
+          </div>` : `<p style="font-size:12px;color:#94A3B8;margin-top:8px">* ค่านี้กำหนดตายตัว ไม่สามารถแก้ไขได้</p>`;
+
+        return `
+          <div class="card mb-24">
+            <div class="card-header"><span class="card-title">${cat.label}</span>
+              <span style="font-size:13px;color:#94A3B8">${items.length} รายการ</span>
+            </div>
+            <div class="card-body">
+              <div style="line-height:2">${tags || '<span style="color:#94A3B8;font-size:14px">ยังไม่มีรายการ</span>'}</div>
+              ${addForm}
+              <div id="msg_${cat.key}" style="margin-top:8px;font-size:13px;display:none"></div>
+            </div>
+          </div>`;
+      }).join('');
+
+      document.getElementById('baseContainer').innerHTML = html;
+    }
+
+    async function addItem(category) {
+      const input = document.getElementById(`input_${category}`);
+      const value = input.value.trim();
+      if (!value) return;
+      try {
+        const r = await apiPost({ action: 'addBaseItem', category, value });
+        if (r.success) {
+          input.value = '';
+          showMsg(category, '✅ เพิ่มสำเร็จ', true);
+          await loadBase();
+        } else {
+          showMsg(category, '❌ ' + r.message, false);
+        }
+      } catch (e) { showMsg(category, '❌ ' + e.message, false); }
+    }
+
+    async function deleteItem(category, value) {
+      if (!confirm(`ยืนยันลบ "${value}"?`)) return;
+      try {
+        const r = await apiPost({ action: 'deleteBaseItem', category, value });
+        if (r.success) { showMsg(category, '✅ ลบสำเร็จ', true); await loadBase(); }
+        else showMsg(category, '❌ ' + r.message, false);
+      } catch (e) { showMsg(category, '❌ ' + e.message, false); }
+    }
+
+    function showMsg(category, msg, success) {
+      const el = document.getElementById(`msg_${category}`);
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = 'block';
+      el.style.color = success ? '#16A34A' : '#DC2626';
+      setTimeout(() => el.style.display = 'none', 3000);
+    }
+
+    function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;'); }
+    init();
+  </script>
+</body>
+</html>

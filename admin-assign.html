@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FOLIO STOCK - มอบหมายงาน</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <span class="nav-brand">📦 FOLIO STOCK</span>
+    <div class="nav-right">
+      <span class="nav-username" id="navUserName"></span>
+      <span class="nav-role" id="navRole"></span>
+      <button class="btn btn-secondary btn-sm" onclick="logout()">ออกจากระบบ</button>
+    </div>
+  </nav>
+  <div class="admin-tabs">
+    <a href="admin-today.html" class="tab-link">📋 งานวันนี้</a>
+    <a href="admin-summary.html" class="tab-link">📊 สรุปผล</a>
+    <a href="admin-assign.html" class="tab-link active">📝 มอบหมายงาน</a>
+    <a href="admin-base.html" class="tab-link">⚙️ จัดการระบบ</a>
+  </div>
+
+  <div class="main">
+    <!-- Tabs inside page -->
+    <div style="display:flex;gap:8px;margin-bottom:24px">
+      <button class="btn btn-primary" id="tabTask" onclick="switchTab('task')">📝 มอบหมายงาน</button>
+      <button class="btn btn-outline" id="tabOT" onclick="switchTab('ot')">⏰ แผน OT</button>
+    </div>
+
+    <!-- ===== TAB: ASSIGN TASK ===== -->
+    <div id="sectionTask">
+      <div class="grid-2">
+        <!-- Form -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">➕ สร้างงานใหม่</span></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label>ภารกิจ / งาน <span style="color:red">*</span></label>
+              <textarea id="aTask" rows="2" placeholder="ระบุรายละเอียดงาน..."></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>ประเภทงาน</label>
+                <select id="aType"></select>
+              </div>
+              <div class="form-group">
+                <label>ความสำคัญ</label>
+                <select id="aPriority"></select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>วันที่ Deadline</label>
+                <input type="date" id="aDeadline">
+              </div>
+              <div class="form-group">
+                <label>ช่วงเวลาดำเนินงาน</label>
+                <select id="aTimeSlot"></select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Assign ให้ <span style="color:red">*</span></label>
+              <div class="checkbox-grid" id="assigneeGrid">
+                <div class="loading" style="padding:8px"><div class="spinner" style="width:20px;height:20px;border-width:2px"></div></div>
+              </div>
+            </div>
+            <div id="assignError" class="error-msg" style="display:none"></div>
+            <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="submitTask()">
+              📤 มอบหมายงาน
+            </button>
+          </div>
+        </div>
+
+        <!-- Recent assigned -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">งานที่มอบหมายล่าสุด</span>
+            <button class="btn btn-outline btn-sm" onclick="loadRecentTasks()">🔄</button>
+          </div>
+          <div id="recentContainer">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TAB: OT PLAN ===== -->
+    <div id="sectionOT" style="display:none">
+      <div class="grid-2">
+        <!-- OT form -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">➕ เพิ่มแผน OT</span></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label>วันที่ <span style="color:red">*</span></label>
+              <input type="date" id="otDate">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>เวลาเริ่ม</label>
+                <input type="time" id="otStart" value="18:00">
+              </div>
+              <div class="form-group">
+                <label>เวลาสิ้นสุด</label>
+                <input type="time" id="otEnd" value="21:00">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>จำนวน LM (คน)</label>
+              <input type="number" id="otLM" min="1" placeholder="จำนวนคน">
+            </div>
+            <div class="form-group">
+              <label>งานที่ทำ <span style="color:red">*</span></label>
+              <textarea id="otJob" rows="2" placeholder="ระบุงานที่ทำ OT..."></textarea>
+            </div>
+            <div id="otError" class="error-msg" style="display:none"></div>
+            <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="submitOT()">
+              ⏰ บันทึกแผน OT
+            </button>
+          </div>
+        </div>
+
+        <!-- OT list -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">แผน OT ทั้งหมด</span>
+            <button class="btn btn-outline btn-sm" onclick="loadOT()">🔄</button>
+          </div>
+          <div id="otContainer" style="padding:16px">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    let user, baseData = {}, allAssignees = [];
+
+    async function init() {
+      user = requireAuth('admin');
+      if (!user) return;
+      setNavUser(user);
+      await loadBase();
+      await loadRecentTasks();
+    }
+
+    async function loadBase() {
+      try {
+        const r = await apiGet({ action: 'getBase' });
+        if (!r.success) return;
+        baseData = r.base;
+        allAssignees = r.base.assignees;
+        fillSelect('aType', r.base.taskTypes);
+        fillSelect('aPriority', r.base.priorities);
+        fillSelect('aTimeSlot', r.base.timeSlots);
+        renderAssigneeGrid(r.base.assignees);
+      } catch (e) {}
+    }
+
+    function fillSelect(id, arr) {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = arr.map(v => `<option>${escHtml(v)}</option>`).join('');
+    }
+
+    function renderAssigneeGrid(assignees) {
+      document.getElementById('assigneeGrid').innerHTML = assignees.map(a => `
+        <label class="checkbox-item" onclick="toggleCheck(this)">
+          <input type="checkbox" value="${escHtml(a)}">
+          <span>${escHtml(a)}</span>
+        </label>`).join('');
+    }
+
+    function toggleCheck(el) {
+      el.classList.toggle('checked', el.querySelector('input').checked);
+    }
+
+    async function loadRecentTasks() {
+      document.getElementById('recentContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      try {
+        const r = await apiGet({ action: 'getTasks', role: 'admin' });
+        if (!r.success) return;
+        const recent = r.tasks.slice(-10).reverse();
+        if (!recent.length) {
+          document.getElementById('recentContainer').innerHTML = '<div class="empty-state"><span class="icon">📋</span><p>ยังไม่มีงาน</p></div>';
+          return;
+        }
+        const rows = recent.map(t => `
+          <tr>
+            <td><div style="font-weight:500;font-size:13px">${escHtml(t.task)}</div></td>
+            <td>
+              <div style="display:flex;flex-wrap:wrap;gap:3px">
+                ${t.assignTo.split(',').map(p=>p.trim()).filter(Boolean)
+                  .map(p=>`<span class="badge badge-planning" style="font-size:11px">${escHtml(p)}</span>`).join('')}
+              </div>
+            </td>
+            <td>${badgeStatus(t.status)}</td>
+          </tr>`).join('');
+
+        document.getElementById('recentContainer').innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>ภารกิจ</th><th>Assign</th><th>สถานะ</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+      } catch (e) {}
+    }
+
+    async function submitTask() {
+      const task = document.getElementById('aTask').value.trim();
+      if (!task) { showErr('assignError', 'กรุณากรอกชื่องาน'); return; }
+      const checked = [...document.querySelectorAll('#assigneeGrid input:checked')].map(i => i.value);
+      if (!checked.length) { showErr('assignError', 'กรุณาเลือกผู้รับงานอย่างน้อย 1 คน'); return; }
+
+      const deadlineRaw = document.getElementById('aDeadline').value;
+      const deadline = deadlineRaw ? fmtThai(deadlineRaw) : '';
+      const today = todayStr();
+
+      try {
+        await apiPost({
+          action: 'addTask',
+          task,
+          type: document.getElementById('aType').value,
+          priority: document.getElementById('aPriority').value,
+          timeSlot: document.getElementById('aTimeSlot').value,
+          assignTo: checked.join(', '),
+          deadline,
+          dateAdded: today,
+          startDate: today,
+          status: 'ยังไม่เริ่ม',
+          percent: '0%',
+          addedBy: user.username
+        });
+        document.getElementById('aTask').value = '';
+        document.getElementById('aDeadline').value = '';
+        document.querySelectorAll('#assigneeGrid input').forEach(i => { i.checked = false; i.closest('.checkbox-item').classList.remove('checked'); });
+        document.getElementById('assignError').style.display = 'none';
+        await loadRecentTasks();
+        showSuccess('assignError', '✅ มอบหมายงานสำเร็จ');
+      } catch (e) { showErr('assignError', e.message); }
+    }
+
+    // ===== OT =====
+    async function loadOT() {
+      document.getElementById('otContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      try {
+        const r = await apiGet({ action: 'getOT' });
+        if (!r.success) return;
+        if (!r.otPlans.length) {
+          document.getElementById('otContainer').innerHTML = '<div class="empty-state"><span class="icon">⏰</span><p>ยังไม่มีแผน OT</p></div>';
+          return;
+        }
+        document.getElementById('otContainer').innerHTML = '<div class="ot-list">' +
+          r.otPlans.map(o => `
+            <div class="ot-item">
+              <span class="ot-date">📅 ${o.date}</span>
+              <span class="ot-time">🕐 ${o.timeRange}</span>
+              <span class="ot-lm">👥 ${o.lmCount} คน</span>
+              <span class="ot-job">${escHtml(o.job)}</span>
+              <button class="btn btn-danger btn-sm" onclick="deleteOT(${o.rowIndex})">ลบ</button>
+            </div>`).join('') + '</div>';
+      } catch (e) {}
+    }
+
+    async function submitOT() {
+      const date = document.getElementById('otDate').value;
+      const job = document.getElementById('otJob').value.trim();
+      if (!date) { showErr('otError', 'กรุณาเลือกวันที่'); return; }
+      if (!job) { showErr('otError', 'กรุณากรอกงานที่ทำ'); return; }
+      const start = document.getElementById('otStart').value;
+      const end = document.getElementById('otEnd').value;
+      const lm = document.getElementById('otLM').value;
+      try {
+        await apiPost({ action: 'addOT', date: fmtThai(date), timeRange: `${start} - ${end}`, lmCount: lm, job });
+        document.getElementById('otDate').value = '';
+        document.getElementById('otJob').value = '';
+        document.getElementById('otLM').value = '';
+        document.getElementById('otError').style.display = 'none';
+        await loadOT();
+      } catch (e) { showErr('otError', e.message); }
+    }
+
+    async function deleteOT(rowIndex) {
+      if (!confirm('ยืนยันลบแผน OT นี้?')) return;
+      try {
+        await apiPost({ action: 'deleteOT', rowIndex });
+        await loadOT();
+      } catch (e) { alert('ลบไม่สำเร็จ: ' + e.message); }
+    }
+
+    function switchTab(tab) {
+      const isTask = tab === 'task';
+      document.getElementById('sectionTask').style.display = isTask ? '' : 'none';
+      document.getElementById('sectionOT').style.display = isTask ? 'none' : '';
+      document.getElementById('tabTask').className = isTask ? 'btn btn-primary' : 'btn btn-outline';
+      document.getElementById('tabOT').className = isTask ? 'btn btn-outline' : 'btn btn-primary';
+      if (!isTask) loadOT();
+    }
+
+    function showErr(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = msg; el.style.display = 'block';
+      el.style.background = '#FEE2E2'; el.style.color = '#991B1B';
+    }
+    function showSuccess(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = msg; el.style.display = 'block';
+      el.style.background = '#DCFCE7'; el.style.color = '#166534';
+      setTimeout(() => el.style.display = 'none', 3000);
+    }
+    function todayStr() {
+      const d = new Date();
+      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    }
+    function fmtThai(iso) {
+      const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`;
+    }
+    function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    init();
+  </script>
+</body>
+</html>
