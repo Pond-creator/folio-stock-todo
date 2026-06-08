@@ -23,12 +23,28 @@
   </div>
 
   <div class="main">
-    <!-- stat cards -->
+    <!-- stat cards (clickable filter) -->
     <div class="stats-grid" id="statsGrid">
-      <div class="stat-card blue"><div class="stat-label">งานทั้งหมด</div><div class="stat-value" id="sTotal">-</div></div>
-      <div class="stat-card amber"><div class="stat-label">กำลังดำเนินการ</div><div class="stat-value" id="sPending">-</div></div>
-      <div class="stat-card green"><div class="stat-label">เสร็จแล้ว</div><div class="stat-value" id="sDone">-</div></div>
-      <div class="stat-card red"><div class="stat-label">ใกล้ Deadline</div><div class="stat-value" id="sNear">-</div></div>
+      <div class="stat-card blue" onclick="filterByCard('all')" id="card-all" style="cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(37,99,235,.2)'" onmouseout="this.style.boxShadow=''">
+        <div class="stat-label">งานทั้งหมด</div>
+        <div class="stat-value" id="sTotal">-</div>
+        <div class="stat-sub">กดเพื่อดูทั้งหมด</div>
+      </div>
+      <div class="stat-card amber" onclick="filterByCard('pending')" id="card-pending" style="cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(217,119,6,.2)'" onmouseout="this.style.boxShadow=''">
+        <div class="stat-label">กำลังดำเนินการ</div>
+        <div class="stat-value" id="sPending">-</div>
+        <div class="stat-sub">กดเพื่อดูงานค้าง</div>
+      </div>
+      <div class="stat-card green" onclick="filterByCard('done')" id="card-done" style="cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(22,163,74,.2)'" onmouseout="this.style.boxShadow=''">
+        <div class="stat-label">เสร็จแล้ว</div>
+        <div class="stat-value" id="sDone">-</div>
+        <div class="stat-sub">กดเพื่อดูงานเสร็จ</div>
+      </div>
+      <div class="stat-card red" onclick="filterByCard('near')" id="card-near" style="cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(220,38,38,.2)'" onmouseout="this.style.boxShadow=''">
+        <div class="stat-label">ใกล้ Deadline</div>
+        <div class="stat-value" id="sNear">-</div>
+        <div class="stat-sub">กดเพื่อดูงานด่วน</div>
+      </div>
     </div>
 
     <!-- near deadline alert -->
@@ -243,6 +259,39 @@
         closeModal();
         await loadAll();
       } catch (e) { alert('อัปเดตไม่สำเร็จ: ' + e.message); }
+    }
+
+    function filterByCard(type) {
+      const statusEl = document.getElementById('filterStatus');
+      const showDoneEl = document.getElementById('showDone');
+      // reset filters first
+      document.getElementById('filterPerson').value = '';
+      document.getElementById('filterType').value = '';
+      document.getElementById('filterPriority').value = '';
+      statusEl.value = '';
+      showDoneEl.checked = false;
+
+      if (type === 'done') {
+        showDoneEl.checked = true;
+        statusEl.value = 'เสร็จเรียบร้อย';
+      } else if (type === 'pending') {
+        // show all non-done
+      } else if (type === 'near') {
+        showDoneEl.checked = false;
+      }
+
+      // highlight active card
+      ['all','pending','done','near'].forEach(c => {
+        document.getElementById('card-'+c).style.outline = c === type ? '2px solid currentColor' : '';
+      });
+
+      if (type === 'near') {
+        // custom filter for near deadline
+        const filtered = allTasks.filter(t => t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย').reverse();
+        renderTasks(filtered);
+      } else {
+        applyFilter();
+      }
     }
 
     function closeModal() { document.getElementById('updateModal').style.display = 'none'; }
