@@ -175,7 +175,7 @@
         if (priority && t.priority !== priority) return false;
         if (status && t.status !== status) return false;
         return true;
-      });
+      }).reverse();
       renderTasks(filtered);
     }
 
