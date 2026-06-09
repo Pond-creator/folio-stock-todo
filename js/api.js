@@ -1,13 +1,20 @@
+function fetchWithTimeout(url, options = {}, ms = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+}
+
 async function apiGet(params) {
   const url = new URL(CONFIG.API_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
-  const res = await fetch(url.toString(), { redirect: 'follow' });
+  const res = await fetchWithTimeout(url.toString(), { redirect: 'follow' });
   if (!res.ok) throw new Error('Network error: ' + res.status);
   return res.json();
 }
 
 async function apiPost(data) {
-  const res = await fetch(CONFIG.API_URL, {
+  const res = await fetchWithTimeout(CONFIG.API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(data),
