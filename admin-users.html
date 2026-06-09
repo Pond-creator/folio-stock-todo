@@ -229,7 +229,7 @@
         const r = await apiGet({ action: 'login', username: user.username, password: pwd });
         if (r.success) {
           closeVerify();
-          openEditPass(pwd);
+          openEditPass();
         } else {
           errEl.textContent = 'รหัสผ่านไม่ถูกต้อง';
           errEl.style.display = 'block';
@@ -242,15 +242,22 @@
       }
     }
 
-    async function openEditPass(adminPwd) {
-      // ดึง password ของ user จาก sheet ผ่าน getUsers (เก็บไว้ใน allUsers ไม่มี password)
-      // ต้องดึงใหม่โดยตรงจาก API พิเศษ หรือแสดงแค่ตัว *** แล้วให้เปลี่ยนใหม่
+    async function openEditPass() {
       document.getElementById('editPassName').textContent = editTarget.displayName + ' (' + editTarget.username + ')';
-      document.getElementById('currentPassDisplay').value = '••••••••';
+      document.getElementById('currentPassDisplay').value = 'กำลังโหลด...';
       document.getElementById('currentPassDisplay').type = 'password';
       document.getElementById('newPassInput').value = '';
       document.getElementById('editPassError').style.display = 'none';
       document.getElementById('editPassModal').style.display = 'flex';
+      // ดึงรหัสผ่านจริงจาก API
+      try {
+        const r = await apiGet({ action: 'getUserPassword', username: editTarget.username });
+        if (r.success) {
+          document.getElementById('currentPassDisplay').value = r.password;
+        }
+      } catch(e) {
+        document.getElementById('currentPassDisplay').value = 'โหลดไม่สำเร็จ';
+      }
     }
     function closeEditPass() {
       document.getElementById('editPassModal').style.display = 'none';

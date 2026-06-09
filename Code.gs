@@ -23,7 +23,8 @@ function doGet(e) {
       case 'getTasks': return respond(getTasks(p.username, p.role));
       case 'getSummary': return respond(getSummary());
       case 'getBase':  return respond(getBase());
-      case 'getUsers': return respond(getUsers());
+      case 'getUsers':        return respond(getUsers());
+      case 'getUserPassword': return respond(getUserPassword(p));
       default:         return respond({ error: 'Unknown action' });
     }
   } catch (err) {
@@ -45,6 +46,7 @@ function doPost(e) {
       case 'addUser':             return respond(addUser(data));
       case 'deleteUser':          return respond(deleteUser(data));
       case 'updateUserPassword':  return respond(updateUserPassword(data));
+      case 'getUserPassword':     return respond(getUserPassword(data));
       default:             return respond({ error: 'Unknown action' });
     }
   } catch (err) {
@@ -298,6 +300,17 @@ function addUser(d) {
 function deleteUser(d) {
   getSheet('users').deleteRow(d.rowIndex);
   return { success: true };
+}
+
+function getUserPassword(d) {
+  const sheet = getSheet('users');
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]).trim().toLowerCase() === String(d.username).trim().toLowerCase()) {
+      return { success: true, password: rows[i][1] };
+    }
+  }
+  return { success: false, message: 'ไม่พบผู้ใช้' };
 }
 
 function updateUserPassword(d) {
