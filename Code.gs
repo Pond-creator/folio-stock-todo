@@ -42,8 +42,9 @@ function doPost(e) {
       case 'resetAllOrders':   return respond(resetAllOrders());
       case 'addBaseItem':    return respond(addBaseItem(data));
       case 'deleteBaseItem': return respond(deleteBaseItem(data));
-      case 'addUser':        return respond(addUser(data));
-      case 'deleteUser':     return respond(deleteUser(data));
+      case 'addUser':             return respond(addUser(data));
+      case 'deleteUser':          return respond(deleteUser(data));
+      case 'updateUserPassword':  return respond(updateUserPassword(data));
       default:             return respond({ error: 'Unknown action' });
     }
   } catch (err) {
@@ -297,6 +298,18 @@ function addUser(d) {
 function deleteUser(d) {
   getSheet('users').deleteRow(d.rowIndex);
   return { success: true };
+}
+
+function updateUserPassword(d) {
+  const sheet = getSheet('users');
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]).trim().toLowerCase() === String(d.username).trim().toLowerCase()) {
+      sheet.getRange(i + 1, 2).setValue(d.newPassword);
+      return { success: true };
+    }
+  }
+  return { success: false, message: 'ไม่พบผู้ใช้' };
 }
 
 // ===== OT (legacy - ไม่ได้ใช้แล้ว แต่เก็บไว้) =====
