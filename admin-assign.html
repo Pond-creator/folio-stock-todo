@@ -219,11 +219,21 @@
     }
 
     async function loadRecentTasks() {
-      document.getElementById('recentContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      // แสดง cache ก่อนถ้ามี
+      const cached = sessionStorage.getItem('recentTasks');
+      if (cached) renderRecentTasks(JSON.parse(cached));
+      else document.getElementById('recentContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
       try {
         const r = await apiGet({ action: 'getTasks', role: 'admin' });
         if (!r.success) return;
         const recent = r.tasks.slice(-10).reverse();
+        sessionStorage.setItem('recentTasks', JSON.stringify(recent));
+        renderRecentTasks(recent);
+      } catch (e) {}
+    }
+
+    function renderRecentTasks(recent) {
         if (!recent.length) {
           document.getElementById('recentContainer').innerHTML = '<div class="empty-state"><span class="icon">📋</span><p>ยังไม่มีงาน</p></div>';
           return;
@@ -248,7 +258,6 @@
               <tbody>${rows}</tbody>
             </table>
           </div>`;
-      } catch (e) {}
     }
 
     async function submitTask() {
