@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>FOLIO STOCK - มอบหมายงาน</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    select:invalid, select option[value=""] { color: #9CA3AF; }
+    select option:not([value=""]) { color: #0F172A; }
+  </style>
 </head>
 <body>
   <nav class="navbar">
@@ -168,7 +172,9 @@
 
     function fillSelect(id, arr) {
       const el = document.getElementById(id);
-      if (el) el.innerHTML = arr.map(v => `<option>${escHtml(v)}</option>`).join('');
+      if (el) el.innerHTML =
+        `<option value="" disabled selected style="color:#9CA3AF">-- เลือก --</option>` +
+        arr.map(v => `<option>${escHtml(v)}</option>`).join('');
     }
 
     function renderAssigneeGrid(assignees) {
@@ -320,6 +326,9 @@
         document.getElementById('aTask').value = '';
         document.getElementById('aStartDate').value = '';
         document.getElementById('aDeadline').value = '';
+        document.getElementById('aType').value = '';
+        document.getElementById('aPriority').value = '';
+        document.getElementById('aTimeSlot').value = '';
         document.querySelectorAll('#assigneeGrid input').forEach(i => { i.checked = false; i.closest('.checkbox-item').classList.remove('checked'); });
         document.getElementById('assignError').style.display = 'none';
         await loadRecentTasks();
