@@ -29,6 +29,7 @@ const PRIORITY_CLASS = {
   'ด่วนมาก': 'badge-urgent',
   'ไม่เร่งด่วนแต่สำคัญ': 'badge-important',
   'ไม่สำคัญแต่เร่งด่วน': 'badge-rush',
+  'ไม่่สำคัญแต่เร่งด่วน': 'badge-rush', // fallback สำหรับข้อมูลเก่าที่พิมพ์ผิด
   'รอได้ไม่สำคัญ': 'badge-low'
 };
 const STATUS_CLASS = {
