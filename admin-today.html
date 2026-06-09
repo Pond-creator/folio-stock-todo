@@ -483,6 +483,27 @@
       renderFlatList(base);
     }
 
+    function exportCSV(rows, filename) {
+      const BOM = '﻿';
+      const csv = BOM + rows.map(r =>
+        r.map(v => {
+          const s = String(v == null ? '' : v);
+          return (s.includes(',') || s.includes('"') || s.includes('\n'))
+            ? '"' + s.replace(/"/g, '""') + '"' : s;
+        }).join(',')
+      ).join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+    function todayFilename(prefix) {
+      const d = new Date();
+      const s = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      return `${prefix}_${s}.csv`;
+    }
+
     function exportTasks() {
       if (!filteredTasks.length) { alert('ไม่มีข้อมูลที่จะ Export'); return; }
       const header = ['#','ภารกิจ/งาน','ประเภท','ความสำคัญ','Assign To','วันเริ่มงาน','Deadline','เหลือ (วัน)','ช่วงเวลา','สถานะ','ความคืบหน้า'];
