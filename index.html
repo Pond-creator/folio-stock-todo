@@ -37,7 +37,7 @@
   <script>
     // Redirect if already logged in
     const existing = getSession();
-    if (existing) location.href = existing.role === 'admin' ? 'admin-today.html' : existing.role === 'staff' ? 'staff.html' : 'user.html';
+    if (existing) location.href = (existing.role === 'admin' || existing.role === 'staff') ? 'admin-today.html' : 'user.html';
 
     document.getElementById('loginForm').addEventListener('submit', async e => {
       e.preventDefault();
@@ -52,7 +52,7 @@
         const result = await apiGet({ action: 'login', username, password });
         if (result.success) {
           saveSession(result);
-          const dest = result.role === 'admin' ? 'admin-today.html' : result.role === 'staff' ? 'staff.html' : 'user.html';
+          const dest = (result.role === 'admin' || result.role === 'staff') ? 'admin-today.html' : 'user.html';
           location.href = dest;
         } else {
           errEl.textContent = result.message || 'เข้าสู่ระบบไม่สำเร็จ';

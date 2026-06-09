@@ -76,6 +76,16 @@
       font-family: Sarabun,sans-serif; font-size: 13px; color: #374151;
     }
 
+    /* Admin order select */
+    .order-select {
+      width: 60px; padding: 4px 2px; border: 1.5px solid #E2E8F0;
+      border-radius: 6px; font-size: 13px; text-align: center;
+      font-family: Sarabun,sans-serif; cursor: pointer;
+      background: white; color: #374151;
+    }
+    .order-select.has-value { border-color: #2563EB; background: #EFF6FF; color: #1E40AF; font-weight: 700; }
+    .order-select:focus { outline: none; border-color: #2563EB; }
+
     /* active filter pill */
     .filter-active-pill {
       display: inline-flex; align-items: center; gap: 6px;
@@ -100,12 +110,7 @@
       <button class="btn btn-secondary btn-sm" onclick="logout()">ออกจากระบบ</button>
     </div>
   </nav>
-  <div class="admin-tabs">
-    <a href="admin-today.html" class="tab-link active">📋 งานวันนี้</a>
-    <a href="admin-summary.html" class="tab-link">📊 สรุปผล</a>
-    <a href="admin-assign.html" class="tab-link">📝 มอบหมายงาน</a>
-    <a href="admin-base.html" class="tab-link">⚙️ จัดการระบบ</a>
-  </div>
+  <div class="admin-tabs" id="navTabs"></div>
 
   <div class="main">
 
@@ -239,9 +244,10 @@
     const DATE_LABEL = { all:'ทุกวัน', today:'วันนี้', yesterday:'เมื่อวาน', week:'7 วัน', month:'เดือนนี้', custom:'ช่วงที่เลือก' };
 
     async function init() {
-      user = requireAuth('admin');
+      user = requireAuth(['admin', 'staff']);
       if (!user) return;
       setNavUser(user);
+      renderNav('today');
       await loadAll();
     }
 
@@ -445,9 +451,15 @@
 
       updateFilterPill();
 
-      // เรียง: ตามสถานะ (ยังไม่เริ่ม → กำลังทำ → เสร็จ) แล้วเรียง deadline น้อย→มาก
+      // เรียง: admin กำหนดลำดับมาก่อน → ที่เหลือเรียงตามสถานะแล้ว deadline
       const STATUS_ORDER = { 'ยังไม่เริ่ม':1, 'กำลังวางแผน':2, 'ลงมือทำ':3, 'ติดตามผล':4, 'เสร็จเรียบร้อย':5 };
       base.sort((a, b) => {
+        const aHas = a.adminOrder !== null;
+        const bHas = b.adminOrder !== null;
+        if (aHas && bHas) return a.adminOrder - b.adminOrder; // เรียงตาม adminOrder
+        if (aHas) return -1; // a ขึ้นก่อน
+        if (bHas) return 1;  // b ขึ้นก่อน
+        // ทั้งคู่ไม่มี adminOrder → เรียงตามสถานะแล้ว deadline
         const sa = STATUS_ORDER[a.status] || 1;
         const sb = STATUS_ORDER[b.status] || 1;
         if (sa !== sb) return sa - sb;
@@ -496,7 +508,14 @@
     }
 
     function taskTable(tasks) {
-      const rows = tasks.map(t => `
+      const isAdmin = user && user.role === 'admin';
+      // รวบรวมหมายเลขที่ถูกใช้แล้ว
+      const usedOrders = new Set(allTasks.map(t => t.adminOrder).filter(n => n !== null));
+      const maxOrder = allTasks.length;
+
+      const rows = tasks.map(t => {
+        const orderSelect = isAdmin ? buildOrderSelect(t, usedOrders, maxOrder) : '';
+        return `
         <tr class="${t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย' ? 'near-deadline-row' : ''}">
           <td style="color:#94A3B8;font-size:13px;text-align:center;width:36px">${t.seq}</td>
           <td>
@@ -518,9 +537,14 @@
           <td><span style="font-size:13px">${t.timeSlot||'-'}</span></td>
           <td>${badgeStatus(t.status)}</td>
           <td style="min-width:100px">${progressBar(t.percent)}</td>
-          <td><button class="btn btn-outline btn-sm" onclick="openUpdate(${t.rowIndex})">อัปเดต</button></td>
-        </tr>`).join('');
+          <td style="white-space:nowrap">
+            <button class="btn btn-outline btn-sm" onclick="openUpdate(${t.rowIndex})">อัปเดต</button>
+            ${orderSelect}
+          </td>
+        </tr>`;
+      }).join('');
 
+      const orderHeader = isAdmin ? '<th style="width:70px">ลำดับ</th>' : '';
       return `<div class="table-wrap"><table>
         <thead><tr>
           <th>#</th><th>ภารกิจ / งาน</th><th>ประเภท</th><th>ความสำคัญ</th>
@@ -529,6 +553,32 @@
         </tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
+    }
+
+    function buildOrderSelect(t, usedOrders, maxOrder) {
+      const cur = t.adminOrder;
+      let opts = `<option value="">-</option>`;
+      for (let n = 1; n <= maxOrder; n++) {
+        // disable ถ้าถูกใช้โดยงานอื่น (ไม่ใช่งานนี้)
+        const taken = usedOrders.has(n) && cur !== n;
+        opts += `<option value="${n}" ${cur === n ? 'selected' : ''} ${taken ? 'disabled' : ''}>${n}</option>`;
+      }
+      const cls = cur !== null ? 'order-select has-value' : 'order-select';
+      return `<select class="${cls}" onchange="setAdminOrder(${t.rowIndex}, this)">${opts}</select>`;
+    }
+
+    async function setAdminOrder(rowIndex, sel) {
+      const val = sel.value === '' ? '' : Number(sel.value);
+      // อัปเดต local ทันที
+      const t = allTasks.find(x => x.rowIndex === rowIndex);
+      if (t) t.adminOrder = val === '' ? null : val;
+      sel.className = val !== '' ? 'order-select has-value' : 'order-select';
+      try {
+        await apiPost({ action: 'updateAdminOrder', rowIndex, adminOrder: val });
+        applyFilter(); // re-render เพื่ออัปเดต dropdown ทุกแถว
+      } catch(e) {
+        alert('บันทึกไม่สำเร็จ: ' + e.message);
+      }
     }
 
     function openUpdate(rowIndex) {

@@ -19,12 +19,7 @@
       <button class="btn btn-secondary btn-sm" onclick="logout()">ออกจากระบบ</button>
     </div>
   </nav>
-  <div class="admin-tabs">
-    <a href="admin-today.html" class="tab-link">📋 งานวันนี้</a>
-    <a href="admin-summary.html" class="tab-link">📊 สรุปผล</a>
-    <a href="admin-assign.html" class="tab-link active">📝 มอบหมายงาน</a>
-    <a href="admin-base.html" class="tab-link">⚙️ จัดการระบบ</a>
-  </div>
+  <div class="admin-tabs" id="navTabs"></div>
 
   <div class="main">
     <!-- ===== ASSIGN TASK ===== -->
@@ -131,9 +126,10 @@
     let user, baseData = {}, allAssignees = [];
 
     async function init() {
-      user = requireAuth('admin');
+      user = requireAuth(['admin', 'staff']);
       if (!user) return;
       setNavUser(user);
+      renderNav('assign');
 
       // โหลด base จาก cache ก่อน (เร็ว) แล้วค่อย fetch จริงพร้อมกัน
       const cached = sessionStorage.getItem('baseData');

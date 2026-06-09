@@ -15,12 +15,7 @@
       <button class="btn btn-secondary btn-sm" onclick="logout()">ออกจากระบบ</button>
     </div>
   </nav>
-  <div class="admin-tabs">
-    <a href="admin-today.html" class="tab-link">📋 งานวันนี้</a>
-    <a href="admin-summary.html" class="tab-link">📊 สรุปผล</a>
-    <a href="admin-assign.html" class="tab-link">📝 มอบหมายงาน</a>
-    <a href="admin-base.html" class="tab-link active">⚙️ จัดการระบบ</a>
-  </div>
+  <div class="admin-tabs" id="navTabs"></div>
 
   <div class="main">
     <div class="flex-between mb-24">
@@ -51,6 +46,7 @@
       user = requireAuth('admin');
       if (!user) return;
       setNavUser(user);
+      renderNav('base');
       await loadBase();
     }
 

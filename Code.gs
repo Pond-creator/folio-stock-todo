@@ -23,7 +23,7 @@ function doGet(e) {
       case 'getTasks': return respond(getTasks(p.username, p.role));
       case 'getSummary': return respond(getSummary());
       case 'getBase':  return respond(getBase());
-      case 'getOT':    return respond(getOT());
+      case 'getUsers': return respond(getUsers());
       default:         return respond({ error: 'Unknown action' });
     }
   } catch (err) {
@@ -35,13 +35,14 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     switch (data.action) {
-      case 'addTask':      return respond(addTask(data));
-      case 'updateTask':   return respond(updateTask(data));
-      case 'deleteTask':   return respond(deleteTask(data));
-      case 'addOT':        return respond(addOT(data));
-      case 'deleteOT':     return respond(deleteOT(data));
-      case 'addBaseItem':  return respond(addBaseItem(data));
+      case 'addTask':        return respond(addTask(data));
+      case 'updateTask':     return respond(updateTask(data));
+      case 'deleteTask':     return respond(deleteTask(data));
+      case 'updateAdminOrder': return respond(updateAdminOrder(data));
+      case 'addBaseItem':    return respond(addBaseItem(data));
       case 'deleteBaseItem': return respond(deleteBaseItem(data));
+      case 'addUser':        return respond(addUser(data));
+      case 'deleteUser':     return respond(deleteUser(data));
       default:             return respond({ error: 'Unknown action' });
     }
   } catch (err) {
@@ -93,21 +94,22 @@ function getTasks(username, role) {
     }
 
     tasks.push({
-      rowIndex: i + 1,
-      seq:      r[0],
-      dateAdded: fmtDate(r[1]),
-      task:     String(r[2]).trim(),
-      type:     r[3],
-      priority: r[4],
-      assignTo: assignTo,
-      deadline: fmtDate(r[6]),
-      daysLeft: daysLeft,
-      startDate: fmtDate(r[8]),
-      timeSlot: r[9],
-      doneDate: fmtDate(r[10]),
-      status:   r[11],
-      percent:  r[12],
-      addedBy:  r[13] || '',
+      rowIndex:   i + 1,
+      seq:        r[0],
+      dateAdded:  fmtDate(r[1]),
+      task:       String(r[2]).trim(),
+      type:       r[3],
+      priority:   r[4],
+      assignTo:   assignTo,
+      deadline:   fmtDate(r[6]),
+      daysLeft:   daysLeft,
+      adminOrder: r[7] !== '' && r[7] !== null && r[7] !== undefined ? Number(r[7]) : null,
+      startDate:  fmtDate(r[8]),
+      timeSlot:   r[9],
+      doneDate:   fmtDate(r[10]),
+      status:     r[11],
+      percent:    fmtPercent(r[12]),
+      addedBy:    r[13] || '',
       isNearDeadline: isNearDeadline
     });
   }
@@ -142,6 +144,14 @@ function updateTask(d) {
 
 function deleteTask(d) {
   getSheet('to do list').deleteRow(d.rowIndex);
+  return { success: true };
+}
+
+function updateAdminOrder(d) {
+  // d.rowIndex, d.adminOrder (number or '' to clear)
+  const sheet = getSheet('to do list');
+  const val = (d.adminOrder === '' || d.adminOrder === null) ? '' : Number(d.adminOrder);
+  sheet.getRange(d.rowIndex, 8).setValue(val); // column H
   return { success: true };
 }
 
@@ -224,7 +234,38 @@ function deleteBaseItem(d) {
   return { success: false, message: 'ไม่พบรายการ' };
 }
 
-// ===== OT =====
+// ===== USERS =====
+function getUsers() {
+  const sheet = getSheet('users');
+  if (!sheet) return { success: false, message: 'ไม่พบ sheet users' };
+  const rows = sheet.getDataRange().getValues();
+  const users = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (!rows[i][0]) continue;
+    users.push({ rowIndex: i + 1, username: rows[i][0], role: rows[i][2], displayName: rows[i][3] });
+  }
+  return { success: true, users };
+}
+
+function addUser(d) {
+  const sheet = getSheet('users');
+  // ตรวจสอบ username ซ้ำ
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]).trim().toLowerCase() === String(d.username).trim().toLowerCase()) {
+      return { success: false, message: 'ชื่อผู้ใช้นี้มีอยู่แล้ว' };
+    }
+  }
+  sheet.appendRow([d.username, d.password, d.role, d.displayName]);
+  return { success: true };
+}
+
+function deleteUser(d) {
+  getSheet('users').deleteRow(d.rowIndex);
+  return { success: true };
+}
+
+// ===== OT (legacy - ไม่ได้ใช้แล้ว แต่เก็บไว้) =====
 function getOT() {
   const sheet = getSheet('lm ot');
   const rows = sheet.getDataRange().getValues();
@@ -247,6 +288,12 @@ function deleteOT(d) {
 }
 
 // ===== HELPER =====
+function fmtPercent(v) {
+  if (v === '' || v === null || v === undefined) return '0%';
+  if (typeof v === 'number') return Math.round(v * 100) + '%';
+  return String(v);
+}
+
 function fmtDate(v) {
   if (!v) return '';
   if (typeof v === 'string') return v;
