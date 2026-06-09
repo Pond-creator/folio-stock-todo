@@ -114,8 +114,8 @@
         </table>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeConfirm()">✏️ แก้ไข</button>
-        <button class="btn btn-primary" onclick="submitTask()">✅ ยืนยัน มอบหมายงาน</button>
+        <button class="btn btn-secondary" id="btnEdit" onclick="closeConfirm()">✏️ แก้ไข</button>
+        <button class="btn btn-primary" id="btnConfirm" onclick="submitTask()">✅ ยืนยัน มอบหมายงาน</button>
       </div>
     </div>
   </div>
@@ -284,7 +284,13 @@
       const timeSlot  = document.getElementById('aTimeSlot').value;
       const checked   = [...document.querySelectorAll('#assigneeGrid input:checked')].map(i => i.value);
       const today = todayStr();
-      closeConfirm();
+
+      // แสดง loading บนปุ่มยืนยัน
+      const btnConfirm = document.getElementById('btnConfirm');
+      const btnEdit = document.getElementById('btnEdit');
+      btnConfirm.disabled = true;
+      btnConfirm.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px"></span> กำลังบันทึก...';
+      btnEdit.disabled = true;
 
       try {
         await apiPost({
@@ -308,7 +314,13 @@
         document.getElementById('assignError').style.display = 'none';
         await loadRecentTasks();
         showSuccess('assignError', '✅ มอบหมายงานสำเร็จ');
-      } catch (e) { showErr('assignError', e.message); }
+      } catch (e) {
+        btnConfirm.disabled = false;
+        btnConfirm.innerHTML = '✅ ยืนยัน มอบหมายงาน';
+        btnEdit.disabled = false;
+        closeConfirm();
+        showErr('assignError', '❌ บันทึกไม่สำเร็จ: ' + e.message);
+      }
     }
 
     function showErr(id, msg) {
