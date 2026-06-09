@@ -23,13 +23,7 @@
   </div>
 
   <div class="main">
-    <!-- Tabs inside page -->
-    <div style="display:flex;gap:8px;margin-bottom:24px">
-      <button class="btn btn-primary" id="tabTask" onclick="switchTab('task')">📝 มอบหมายงาน</button>
-      <button class="btn btn-outline" id="tabOT" onclick="switchTab('ot')">⏰ แผน OT</button>
-    </div>
-
-    <!-- ===== TAB: ASSIGN TASK ===== -->
+    <!-- ===== ASSIGN TASK ===== -->
     <div id="sectionTask">
       <div class="grid-2">
         <!-- Form -->
@@ -99,53 +93,6 @@
     </div>
 
     <!-- ===== TAB: OT PLAN ===== -->
-    <div id="sectionOT" style="display:none">
-      <div class="grid-2">
-        <!-- OT form -->
-        <div class="card">
-          <div class="card-header"><span class="card-title">➕ เพิ่มแผน OT</span></div>
-          <div class="card-body">
-            <div class="form-group">
-              <label>วันที่ <span style="color:red">*</span></label>
-              <input type="date" id="otDate">
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>เวลาเริ่ม</label>
-                <input type="time" id="otStart" value="18:00">
-              </div>
-              <div class="form-group">
-                <label>เวลาสิ้นสุด</label>
-                <input type="time" id="otEnd" value="21:00">
-              </div>
-            </div>
-            <div class="form-group">
-              <label>จำนวน LM (คน)</label>
-              <input type="number" id="otLM" min="1" placeholder="จำนวนคน">
-            </div>
-            <div class="form-group">
-              <label>งานที่ทำ <span style="color:red">*</span></label>
-              <textarea id="otJob" rows="2" placeholder="ระบุงานที่ทำ OT..."></textarea>
-            </div>
-            <div id="otError" class="error-msg" style="display:none"></div>
-            <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="submitOT()">
-              ⏰ บันทึกแผน OT
-            </button>
-          </div>
-        </div>
-
-        <!-- OT list -->
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">แผน OT ทั้งหมด</span>
-            <button class="btn btn-outline btn-sm" onclick="loadOT()">🔄</button>
-          </div>
-          <div id="otContainer" style="padding:16px">
-            <div class="loading"><div class="spinner"></div></div>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <script src="js/config.js"></script>
@@ -312,63 +259,6 @@
         await loadRecentTasks();
         showSuccess('assignError', '✅ มอบหมายงานสำเร็จ');
       } catch (e) { showErr('assignError', e.message); }
-    }
-
-    // ===== OT =====
-    async function loadOT() {
-      document.getElementById('otContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-      try {
-        const r = await apiGet({ action: 'getOT' });
-        if (!r.success) return;
-        if (!r.otPlans.length) {
-          document.getElementById('otContainer').innerHTML = '<div class="empty-state"><span class="icon">⏰</span><p>ยังไม่มีแผน OT</p></div>';
-          return;
-        }
-        document.getElementById('otContainer').innerHTML = '<div class="ot-list">' +
-          r.otPlans.map(o => `
-            <div class="ot-item">
-              <span class="ot-date">📅 ${o.date}</span>
-              <span class="ot-time">🕐 ${o.timeRange}</span>
-              <span class="ot-lm">👥 ${o.lmCount} คน</span>
-              <span class="ot-job">${escHtml(o.job)}</span>
-              <button class="btn btn-danger btn-sm" onclick="deleteOT(${o.rowIndex})">ลบ</button>
-            </div>`).join('') + '</div>';
-      } catch (e) {}
-    }
-
-    async function submitOT() {
-      const date = document.getElementById('otDate').value;
-      const job = document.getElementById('otJob').value.trim();
-      if (!date) { showErr('otError', 'กรุณาเลือกวันที่'); return; }
-      if (!job) { showErr('otError', 'กรุณากรอกงานที่ทำ'); return; }
-      const start = document.getElementById('otStart').value;
-      const end = document.getElementById('otEnd').value;
-      const lm = document.getElementById('otLM').value;
-      try {
-        await apiPost({ action: 'addOT', date: fmtThai(date), timeRange: `${start} - ${end}`, lmCount: lm, job });
-        document.getElementById('otDate').value = '';
-        document.getElementById('otJob').value = '';
-        document.getElementById('otLM').value = '';
-        document.getElementById('otError').style.display = 'none';
-        await loadOT();
-      } catch (e) { showErr('otError', e.message); }
-    }
-
-    async function deleteOT(rowIndex) {
-      if (!confirm('ยืนยันลบแผน OT นี้?')) return;
-      try {
-        await apiPost({ action: 'deleteOT', rowIndex });
-        await loadOT();
-      } catch (e) { alert('ลบไม่สำเร็จ: ' + e.message); }
-    }
-
-    function switchTab(tab) {
-      const isTask = tab === 'task';
-      document.getElementById('sectionTask').style.display = isTask ? '' : 'none';
-      document.getElementById('sectionOT').style.display = isTask ? 'none' : '';
-      document.getElementById('tabTask').className = isTask ? 'btn btn-primary' : 'btn btn-outline';
-      document.getElementById('tabOT').className = isTask ? 'btn btn-outline' : 'btn btn-primary';
-      if (!isTask) loadOT();
     }
 
     function showErr(id, msg) {
