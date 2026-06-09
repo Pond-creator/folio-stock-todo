@@ -169,6 +169,11 @@
           <span id="activeFilterPill" style="display:none"></span>
         </div>
         <div class="flex-gap">
+          <button id="resetOrderBtn" class="btn btn-sm" onclick="resetAllOrders()"
+            style="display:none;background:#FEE2E2;color:#991B1B;border:1.5px solid #FECACA;font-weight:700"
+            title="ล้างลำดับที่ Admin กำหนดทั้งหมด">
+            🔄 รีเซ็ตลำดับ
+          </button>
           <button class="btn btn-primary btn-sm" onclick="location.href='admin-assign.html'">＋ มอบหมายงาน</button>
         </div>
       </div>
@@ -267,7 +272,8 @@
         if (tr.success) {
           allTasks = tr.tasks;
           buildFilters();
-          updateStats();  // คำนวณจาก allTasks เลย ไม่ต้องเรียก getSummary แยก
+          updateStats();
+          updateResetOrderBtn();
           applyFilter();
         }
       } catch (e) { showError('taskContainer', e.message); }
@@ -584,7 +590,8 @@
       sel.className = val !== '' ? 'order-select has-value' : 'order-select';
       try {
         await apiPost({ action: 'updateAdminOrder', rowIndex, adminOrder: val });
-        applyFilter(); // re-render เพื่ออัปเดต dropdown ทุกแถว
+        updateResetOrderBtn();
+        applyFilter();
       } catch(e) {
         alert('บันทึกไม่สำเร็จ: ' + e.message);
       }
@@ -618,6 +625,31 @@
     }
     function todayStr() { return fmtDateThai(new Date()); }
     function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // แสดง/ซ่อนปุ่มรีเซ็ตลำดับ (เฉพาะ admin และมีลำดับที่กำหนดอยู่)
+    function updateResetOrderBtn() {
+      const btn = document.getElementById('resetOrderBtn');
+      if (!btn) return;
+      const isAdmin = user && user.role === 'admin';
+      const hasOrder = allTasks.some(t => t.adminOrder !== null);
+      btn.style.display = (isAdmin && hasOrder) ? 'inline-flex' : 'none';
+    }
+
+    async function resetAllOrders() {
+      if (!confirm('ล้างลำดับที่กำหนดทั้งหมดใช่ไหม?')) return;
+      const btn = document.getElementById('resetOrderBtn');
+      btn.disabled = true; btn.textContent = '⏳ กำลังรีเซ็ต...';
+      try {
+        await apiPost({ action: 'resetAllOrders' });
+        allTasks.forEach(t => t.adminOrder = null);
+        updateResetOrderBtn();
+        applyFilter();
+      } catch(e) {
+        alert('รีเซ็ตไม่สำเร็จ: ' + e.message);
+      } finally {
+        btn.disabled = false; btn.innerHTML = '🔄 รีเซ็ตลำดับ';
+      }
+    }
 
     async function emergencyRefresh() {
       const btn = document.getElementById('emergencyRefreshBtn');

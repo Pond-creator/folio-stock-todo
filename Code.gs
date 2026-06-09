@@ -39,6 +39,7 @@ function doPost(e) {
       case 'updateTask':     return respond(updateTask(data));
       case 'deleteTask':     return respond(deleteTask(data));
       case 'updateAdminOrder': return respond(updateAdminOrder(data));
+      case 'resetAllOrders':   return respond(resetAllOrders());
       case 'addBaseItem':    return respond(addBaseItem(data));
       case 'deleteBaseItem': return respond(deleteBaseItem(data));
       case 'addUser':        return respond(addUser(data));
@@ -93,6 +94,15 @@ function getTasks(username, role) {
       isNearDeadline = daysLeft <= 3 && daysLeft >= 0;
     }
 
+    // adminOrder เก็บแบบ "yyyy-MM-dd:N" — ถ้าไม่ใช่วันนี้ถือว่าหมดอายุ
+    let adminOrder = null;
+    const rawOrder = String(r[7] || '').trim();
+    if (rawOrder && rawOrder.includes(':')) {
+      const parts = rawOrder.split(':');
+      const todayStr = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd');
+      if (parts[0] === todayStr) adminOrder = Number(parts[1]);
+    }
+
     tasks.push({
       rowIndex:   i + 1,
       seq:        r[0],
@@ -103,7 +113,7 @@ function getTasks(username, role) {
       assignTo:   assignTo,
       deadline:   fmtDate(r[6]),
       daysLeft:   daysLeft,
-      adminOrder: r[7] !== '' && r[7] !== null && r[7] !== undefined ? Number(r[7]) : null,
+      adminOrder: adminOrder,
       startDate:  fmtDate(r[8]),
       timeSlot:   r[9],
       doneDate:   fmtDate(r[10]),
@@ -148,10 +158,22 @@ function deleteTask(d) {
 }
 
 function updateAdminOrder(d) {
-  // d.rowIndex, d.adminOrder (number or '' to clear)
   const sheet = getSheet('to do list');
-  const val = (d.adminOrder === '' || d.adminOrder === null) ? '' : Number(d.adminOrder);
-  sheet.getRange(d.rowIndex, 8).setValue(val); // column H
+  let val = '';
+  if (d.adminOrder !== '' && d.adminOrder !== null && d.adminOrder !== undefined) {
+    const todayStr = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd');
+    val = todayStr + ':' + Number(d.adminOrder);
+  }
+  sheet.getRange(d.rowIndex, 8).setValue(val);
+  return { success: true };
+}
+
+function resetAllOrders() {
+  const sheet = getSheet('to do list');
+  const lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    sheet.getRange(2, 8, lastRow - 1, 1).clearContent();
+  }
   return { success: true };
 }
 
