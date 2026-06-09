@@ -104,6 +104,16 @@
 <body>
   <nav class="navbar">
     <span class="nav-brand">📦 FOLIO STOCK</span>
+    <button id="emergencyRefreshBtn" onclick="emergencyRefresh()" style="
+      background:#DC2626; color:white; border:none; border-radius:10px;
+      padding:8px 20px; font-family:Sarabun,sans-serif; font-size:14px;
+      font-weight:700; cursor:pointer; letter-spacing:0.3px;
+      box-shadow:0 3px 10px rgba(220,38,38,.45);
+      transition:all .15s; display:flex; align-items:center; gap:8px;
+    " onmouseover="this.style.background='#B91C1C';this.style.transform='scale(1.04)'"
+       onmouseout="this.style.background='#DC2626';this.style.transform='scale(1)'">
+      🔄 <span>กดทุกครั้งก่อนเริ่มทำงาน</span>
+    </button>
     <div class="nav-right">
       <span class="nav-username" id="navUserName"></span>
       <span class="nav-role" id="navRole"></span>
@@ -609,6 +619,21 @@
     }
     function todayStr() { return fmtDateThai(new Date()); }
     function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    async function emergencyRefresh() {
+      const btn = document.getElementById('emergencyRefreshBtn');
+      btn.disabled = true;
+      btn.innerHTML = '⏳ <span>กำลังโหลด...</span>';
+      btn.style.background = '#991B1B';
+      await resetAndLoad();
+      btn.innerHTML = '✅ <span>โหลดแล้ว!</span>';
+      btn.style.background = '#16A34A';
+      setTimeout(() => {
+        btn.innerHTML = '🔄 <span>กดทุกครั้งก่อนเริ่มทำงาน</span>';
+        btn.style.background = '#DC2626';
+        btn.disabled = false;
+      }, 1500);
+    }
 
     init();
   </script>
