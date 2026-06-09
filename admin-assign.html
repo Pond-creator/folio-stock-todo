@@ -73,7 +73,7 @@
               </div>
             </div>
             <div id="assignError" class="error-msg" style="display:none"></div>
-            <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="submitTask()">
+            <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="confirmTask()">
               📤 มอบหมายงาน
             </button>
           </div>
@@ -93,6 +93,31 @@
     </div>
 
     <!-- ===== TAB: OT PLAN ===== -->
+  </div>
+
+  <!-- CONFIRM MODAL -->
+  <div id="confirmModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeConfirm()">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-header">
+        <span class="modal-title">✅ ยืนยันการมอบหมายงาน</span>
+        <button class="modal-close" onclick="closeConfirm()">✕</button>
+      </div>
+      <div class="modal-body">
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          <tr><td style="padding:7px 0;color:#64748B;width:130px">📝 ภารกิจ</td><td id="cf_task" style="font-weight:600;color:#0F172A"></td></tr>
+          <tr><td style="padding:7px 0;color:#64748B">📦 ประเภท</td><td id="cf_type"></td></tr>
+          <tr><td style="padding:7px 0;color:#64748B">🔥 ความสำคัญ</td><td id="cf_priority"></td></tr>
+          <tr><td style="padding:7px 0;color:#64748B">📅 เริ่มทำวันที่</td><td id="cf_start"></td></tr>
+          <tr><td style="padding:7px 0;color:#64748B">⏰ Deadline</td><td id="cf_deadline"></td></tr>
+          <tr><td style="padding:7px 0;color:#64748B">🕐 ช่วงเวลา</td><td id="cf_timeslot"></td></tr>
+          <tr><td style="padding:7px 0;color:#64748B">👥 Assign ให้</td><td id="cf_assign"></td></tr>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeConfirm()">✏️ แก้ไข</button>
+        <button class="btn btn-primary" onclick="submitTask()">✅ ยืนยัน มอบหมายงาน</button>
+      </div>
+    </div>
   </div>
 
   <script src="js/config.js"></script>
@@ -217,7 +242,7 @@
           </div>`;
     }
 
-    async function submitTask() {
+    function confirmTask() {
       const task      = document.getElementById('aTask').value.trim();
       const type      = document.getElementById('aType').value;
       const priority  = document.getElementById('aPriority').value;
@@ -234,7 +259,32 @@
       if (!timeSlot)      { showErr('assignError', '❌ กรุณาเลือกช่วงเวลาดำเนินงาน'); return; }
       if (!checked.length){ showErr('assignError', '❌ กรุณาเลือกผู้รับงานอย่างน้อย 1 คน'); return; }
 
+      // แสดงสรุปใน modal
+      document.getElementById('cf_task').textContent     = task;
+      document.getElementById('cf_type').textContent     = type;
+      document.getElementById('cf_priority').innerHTML   = badgePriority(priority);
+      document.getElementById('cf_start').textContent    = fmtThai(startDate);
+      document.getElementById('cf_deadline').textContent = fmtThai(deadline);
+      document.getElementById('cf_timeslot').textContent = timeSlot;
+      document.getElementById('cf_assign').innerHTML     = checked.map(p =>
+        `<span class="badge badge-planning" style="font-size:12px;margin:2px">${escHtml(p)}</span>`).join('');
+      document.getElementById('confirmModal').style.display = 'flex';
+    }
+
+    function closeConfirm() {
+      document.getElementById('confirmModal').style.display = 'none';
+    }
+
+    async function submitTask() {
+      const task      = document.getElementById('aTask').value.trim();
+      const type      = document.getElementById('aType').value;
+      const priority  = document.getElementById('aPriority').value;
+      const startDate = document.getElementById('aStartDate').value;
+      const deadline  = document.getElementById('aDeadline').value;
+      const timeSlot  = document.getElementById('aTimeSlot').value;
+      const checked   = [...document.querySelectorAll('#assigneeGrid input:checked')].map(i => i.value);
       const today = todayStr();
+      closeConfirm();
 
       try {
         await apiPost({
