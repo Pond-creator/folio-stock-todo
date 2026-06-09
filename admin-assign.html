@@ -158,21 +158,33 @@
       user = requireAuth('admin');
       if (!user) return;
       setNavUser(user);
-      await loadBase();
-      await loadRecentTasks();
+
+      // โหลด base จาก cache ก่อน (เร็ว) แล้วค่อย fetch จริงพร้อมกัน
+      const cached = sessionStorage.getItem('baseData');
+      if (cached) {
+        applyBase(JSON.parse(cached));
+      }
+
+      // โหลดพร้อมกัน
+      await Promise.all([loadBase(), loadRecentTasks()]);
     }
 
     async function loadBase() {
       try {
         const r = await apiGet({ action: 'getBase' });
         if (!r.success) return;
-        baseData = r.base;
-        allAssignees = r.base.assignees;
-        fillSelect('aType', r.base.taskTypes);
-        fillSelect('aPriority', r.base.priorities);
-        fillSelect('aTimeSlot', r.base.timeSlots);
-        renderAssigneeGrid(r.base.assignees);
+        sessionStorage.setItem('baseData', JSON.stringify(r.base));
+        applyBase(r.base);
       } catch (e) {}
+    }
+
+    function applyBase(base) {
+      baseData = base;
+      allAssignees = base.assignees;
+      fillSelect('aType', base.taskTypes);
+      fillSelect('aPriority', base.priorities);
+      fillSelect('aTimeSlot', base.timeSlots);
+      renderAssigneeGrid(base.assignees);
     }
 
     function fillSelect(id, arr) {
