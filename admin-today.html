@@ -410,21 +410,9 @@
       let base;
 
       if (activeCard === 'all') {
-        // ทั้งหมด → กรองตามวันที่
-        const range = getDateRange();
-        if (activeDateFilter === 'today') {
-          const todayEnd = todayThai(); todayEnd.setHours(23,59,59,999);
-          const todayStart = todayThai();
-          base = allTasks.filter(t => {
-            const d = parseDateThai(t.deadline || t.dateAdded);
-            if (!d) return false;
-            if (t.status === 'เสร็จเรียบร้อย') return d >= todayStart && d <= todayEnd;
-            return d <= todayEnd;
-          });
-        } else {
-          base = allTasks.filter(t => isInRange(t.deadline || t.dateAdded, range));
-        }
-        document.getElementById('listTitle').textContent = `📋 ทั้งหมด — ${DATE_LABEL[activeDateFilter]}`;
+        // ทั้งหมด → แสดงทุกงานในระบบ ไม่กรองวัน
+        base = [...allTasks];
+        document.getElementById('listTitle').textContent = `📋 งานทั้งหมดในระบบ`;
       } else {
         // กดปุ่มสถานะ → แสดงทุกงานสถานะนั้น ไม่กรองวัน
         base = allTasks.filter(t => {
@@ -447,13 +435,15 @@
 
       updateFilterPill();
 
-      // เรียง: pending ก่อน (ตาม priority), done ทีหลัง
+      // เรียง: ตามสถานะ (ยังไม่เริ่ม → กำลังทำ → เสร็จ) แล้วเรียง deadline น้อย→มาก
+      const STATUS_ORDER = { 'ยังไม่เริ่ม':1, 'กำลังวางแผน':2, 'ลงมือทำ':3, 'ติดตามผล':4, 'เสร็จเรียบร้อย':5 };
       base.sort((a, b) => {
-        const aDone = a.status === 'เสร็จเรียบร้อย';
-        const bDone = b.status === 'เสร็จเรียบร้อย';
-        if (aDone !== bDone) return aDone ? 1 : -1;
-        if (!aDone) return (PRIO[a.priority]||9) - (PRIO[b.priority]||9);
-        return 0;
+        const sa = STATUS_ORDER[a.status] || 1;
+        const sb = STATUS_ORDER[b.status] || 1;
+        if (sa !== sb) return sa - sb;
+        const da = parseDateThai(a.deadline) || new Date(9999,0,1);
+        const db = parseDateThai(b.deadline) || new Date(9999,0,1);
+        return da - db;
       });
 
       renderFlatList(base);
