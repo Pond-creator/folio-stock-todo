@@ -52,9 +52,15 @@
             </div>
             <div class="form-row">
               <div class="form-group">
+                <label>เริ่มทำวันที่ <span style="color:red">*</span></label>
+                <input type="date" id="aStartDate">
+              </div>
+              <div class="form-group">
                 <label>วันที่ Deadline <span style="color:red">*</span></label>
                 <input type="date" id="aDeadline">
               </div>
+            </div>
+            <div class="form-row">
               <div class="form-group">
                 <label>ช่วงเวลาดำเนินงาน <span style="color:red">*</span></label>
                 <select id="aTimeSlot"></select>
@@ -234,16 +240,18 @@
     }
 
     async function submitTask() {
-      const task     = document.getElementById('aTask').value.trim();
-      const type     = document.getElementById('aType').value;
-      const priority = document.getElementById('aPriority').value;
-      const deadline = document.getElementById('aDeadline').value;
-      const timeSlot = document.getElementById('aTimeSlot').value;
-      const checked  = [...document.querySelectorAll('#assigneeGrid input:checked')].map(i => i.value);
+      const task      = document.getElementById('aTask').value.trim();
+      const type      = document.getElementById('aType').value;
+      const priority  = document.getElementById('aPriority').value;
+      const startDate = document.getElementById('aStartDate').value;
+      const deadline  = document.getElementById('aDeadline').value;
+      const timeSlot  = document.getElementById('aTimeSlot').value;
+      const checked   = [...document.querySelectorAll('#assigneeGrid input:checked')].map(i => i.value);
 
       if (!task)          { showErr('assignError', '❌ กรุณากรอกภารกิจ / งาน'); return; }
       if (!type)          { showErr('assignError', '❌ กรุณาเลือกประเภทงาน'); return; }
       if (!priority)      { showErr('assignError', '❌ กรุณาเลือกความสำคัญ'); return; }
+      if (!startDate)     { showErr('assignError', '❌ กรุณาเลือกวันที่เริ่มทำ'); return; }
       if (!deadline)      { showErr('assignError', '❌ กรุณาเลือกวันที่ Deadline'); return; }
       if (!timeSlot)      { showErr('assignError', '❌ กรุณาเลือกช่วงเวลาดำเนินงาน'); return; }
       if (!checked.length){ showErr('assignError', '❌ กรุณาเลือกผู้รับงานอย่างน้อย 1 คน'); return; }
@@ -256,18 +264,19 @@
         await apiPost({
           action: 'addTask',
           task,
-          type: document.getElementById('aType').value,
-          priority: document.getElementById('aPriority').value,
-          timeSlot: document.getElementById('aTimeSlot').value,
+          type,
+          priority,
+          timeSlot,
           assignTo: checked.join(', '),
-          deadline,
+          deadline: fmtThai(deadline),
           dateAdded: today,
-          startDate: today,
+          startDate: fmtThai(startDate),
           status: 'ยังไม่เริ่ม',
           percent: '0%',
           addedBy: user.username
         });
         document.getElementById('aTask').value = '';
+        document.getElementById('aStartDate').value = '';
         document.getElementById('aDeadline').value = '';
         document.querySelectorAll('#assigneeGrid input').forEach(i => { i.checked = false; i.closest('.checkbox-item').classList.remove('checked'); });
         document.getElementById('assignError').style.display = 'none';
