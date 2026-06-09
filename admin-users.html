@@ -6,14 +6,11 @@
   <title>FOLIO STOCK - จัดการ User</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    .role-badge {
-      display: inline-block; padding: 2px 10px; border-radius: 99px;
-      font-size: 12px; font-weight: 700;
-    }
-    .role-admin { background: #DBEAFE; color: #1E40AF; }
-    .role-staff { background: #FEF3C7; color: #92400E; }
-    .role-user  { background: #DCFCE7; color: #166534; }
-    .user-table td { vertical-align: middle; }
+    .role-badge { display:inline-block; padding:2px 10px; border-radius:99px; font-size:12px; font-weight:700; }
+    .role-admin { background:#DBEAFE; color:#1E40AF; }
+    .role-staff { background:#FEF3C7; color:#92400E; }
+    .role-user  { background:#DCFCE7; color:#166534; }
+    .user-table td { vertical-align:middle; }
   </style>
 </head>
 <body>
@@ -73,55 +70,24 @@
     </div>
   </div>
 
-  <!-- Verify Admin Password Modal -->
-  <div id="verifyModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeVerify()">
+  <!-- Reset Password Modal -->
+  <div id="resetPassModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeResetPass()">
     <div class="modal" style="max-width:360px">
       <div class="modal-header">
-        <span class="modal-title">🔐 ยืนยันตัวตน</span>
-        <button class="modal-close" onclick="closeVerify()">✕</button>
+        <span class="modal-title">🔑 Reset รหัสผ่าน</span>
+        <button class="modal-close" onclick="closeResetPass()">✕</button>
       </div>
       <div class="modal-body">
-        <p style="font-size:13px;color:#374151;margin-bottom:12px">กรอกรหัสผ่านของคุณเพื่อดู/แก้ไขรหัสผ่านของ <strong id="verifyTargetName"></strong></p>
+        <p style="font-size:13px;font-weight:600;color:#0F172A;margin-bottom:16px">ผู้ใช้: <span id="resetPassName"></span></p>
         <div class="form-group" style="margin-bottom:0">
-          <label>รหัสผ่านของคุณ</label>
-          <input type="password" id="adminPasswordInput" placeholder="กรอกรหัสผ่าน" onkeydown="if(event.key==='Enter')submitVerify()">
+          <label>รหัสผ่านใหม่ <span style="color:red">*</span></label>
+          <input type="password" id="newPassInput" placeholder="กรอกรหัสผ่านใหม่" onkeydown="if(event.key==='Enter')saveNewPassword()">
         </div>
-        <div id="verifyError" style="display:none;color:#EF4444;font-size:13px;margin-top:8px"></div>
+        <div id="resetPassError" style="display:none;color:#EF4444;font-size:13px;margin-top:8px"></div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeVerify()">ยกเลิก</button>
-        <button class="btn btn-primary" id="verifyBtn" onclick="submitVerify()">ยืนยัน</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Edit Password Modal -->
-  <div id="editPassModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeEditPass()">
-    <div class="modal" style="max-width:360px">
-      <div class="modal-header">
-        <span class="modal-title">✏️ แก้ไขรหัสผ่าน</span>
-        <button class="modal-close" onclick="closeEditPass()">✕</button>
-      </div>
-      <div class="modal-body">
-        <p style="font-size:13px;font-weight:600;color:#0F172A;margin-bottom:16px">ผู้ใช้: <span id="editPassName"></span></p>
-        <div class="form-group">
-          <label>รหัสผ่านปัจจุบัน</label>
-          <div style="display:flex;align-items:center;gap:8px">
-            <input type="text" id="currentPassDisplay" readonly
-              style="background:#F8FAFC;color:#374151;font-weight:600;flex:1">
-            <button class="btn btn-outline btn-sm" onclick="togglePassVisibility()"
-              id="togglePassBtn" title="แสดง/ซ่อน">👁</button>
-          </div>
-        </div>
-        <div class="form-group" style="margin-bottom:0">
-          <label>รหัสผ่านใหม่ (ถ้าต้องการเปลี่ยน)</label>
-          <input type="password" id="newPassInput" placeholder="กรอกรหัสผ่านใหม่">
-        </div>
-        <div id="editPassError" style="display:none;color:#EF4444;font-size:13px;margin-top:8px"></div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeEditPass()">ปิด</button>
-        <button class="btn btn-primary" id="savePassBtn" onclick="saveNewPassword()">บันทึกรหัสใหม่</button>
+        <button class="btn btn-secondary" onclick="closeResetPass()">ยกเลิก</button>
+        <button class="btn btn-primary" id="savePassBtn" onclick="saveNewPassword()">บันทึก</button>
       </div>
     </div>
   </div>
@@ -148,7 +114,7 @@
   <script src="js/auth.js"></script>
   <script src="js/api.js"></script>
   <script>
-    let user, deleteTarget = null, editTarget = null, allUsers = [];
+    let user, deleteTarget = null, resetTarget = null;
 
     async function init() {
       user = requireAuth('admin');
@@ -169,7 +135,6 @@
     }
 
     function renderUsers(users) {
-      allUsers = users;
       if (!users.length) {
         document.getElementById('userContainer').innerHTML =
           '<div class="empty-state"><span class="icon">👤</span><p>ยังไม่มีผู้ใช้</p></div>';
@@ -178,16 +143,14 @@
       const roleLabel = { admin:'Admin', staff:'Staff', user:'User' };
       const rows = users.map(u => `
         <tr>
-          <td>
-            <span style="font-weight:600;font-size:13px;color:#2563EB;cursor:pointer;text-decoration:underline"
-              onclick="openVerify('${escHtml(u.username)}','${escHtml(u.displayName||u.username)}')"
-              title="คลิกเพื่อดู/แก้ไขรหัสผ่าน">
-              ${escHtml(u.displayName || u.username)}
-            </span>
-          </td>
+          <td style="font-weight:600;font-size:13px">${escHtml(u.displayName || u.username)}</td>
           <td style="font-size:13px;color:#64748B">${escHtml(u.username)}</td>
           <td><span class="role-badge role-${u.role}">${roleLabel[u.role]||u.role}</span></td>
-          <td>
+          <td style="white-space:nowrap">
+            <button class="btn btn-outline btn-sm" style="margin-right:6px"
+              onclick="openResetPass('${escHtml(u.username)}','${escHtml(u.displayName||u.username)}')">
+              🔑 Reset
+            </button>
             ${u.username !== user.username
               ? `<button class="btn btn-outline btn-sm" style="color:#EF4444;border-color:#FCA5A5"
                   onclick="openConfirm(${u.rowIndex},'${escHtml(u.displayName||u.username)}')">ลบ</button>`
@@ -202,84 +165,31 @@
         </table></div>`;
     }
 
-    // ===== VERIFY + EDIT PASSWORD =====
-    function openVerify(username, displayName) {
-      editTarget = { username, displayName };
-      document.getElementById('verifyTargetName').textContent = displayName;
-      document.getElementById('adminPasswordInput').value = '';
-      document.getElementById('verifyError').style.display = 'none';
-      document.getElementById('verifyModal').style.display = 'flex';
-      setTimeout(() => document.getElementById('adminPasswordInput').focus(), 100);
-    }
-    function closeVerify() {
-      editTarget = null;
-      document.getElementById('verifyModal').style.display = 'none';
-    }
-
-    async function submitVerify() {
-      const pwd = document.getElementById('adminPasswordInput').value.trim();
-      const errEl = document.getElementById('verifyError');
-      if (!pwd) { errEl.textContent = 'กรุณากรอกรหัสผ่าน'; errEl.style.display = 'block'; return; }
-
-      const btn = document.getElementById('verifyBtn');
-      btn.disabled = true; btn.textContent = 'กำลังตรวจสอบ...';
-      errEl.style.display = 'none';
-      try {
-        // ยืนยันด้วย login API
-        const r = await apiGet({ action: 'login', username: user.username, password: pwd });
-        if (r.success) {
-          closeVerify();
-          openEditPass();
-        } else {
-          errEl.textContent = 'รหัสผ่านไม่ถูกต้อง';
-          errEl.style.display = 'block';
-        }
-      } catch(e) {
-        errEl.textContent = 'เกิดข้อผิดพลาด: ' + e.message;
-        errEl.style.display = 'block';
-      } finally {
-        btn.disabled = false; btn.textContent = 'ยืนยัน';
-      }
-    }
-
-    async function openEditPass() {
-      document.getElementById('editPassName').textContent = editTarget.displayName + ' (' + editTarget.username + ')';
-      document.getElementById('currentPassDisplay').value = 'กำลังโหลด...';
-      document.getElementById('currentPassDisplay').type = 'password';
+    // ===== RESET PASSWORD =====
+    function openResetPass(username, displayName) {
+      resetTarget = { username, displayName };
+      document.getElementById('resetPassName').textContent = displayName + ' (' + username + ')';
       document.getElementById('newPassInput').value = '';
-      document.getElementById('editPassError').style.display = 'none';
-      document.getElementById('editPassModal').style.display = 'flex';
-      // ดึงรหัสผ่านจริงจาก API
-      try {
-        const r = await apiGet({ action: 'getUserPassword', username: editTarget.username });
-        if (r.success) {
-          document.getElementById('currentPassDisplay').value = r.password;
-        }
-      } catch(e) {
-        document.getElementById('currentPassDisplay').value = 'โหลดไม่สำเร็จ';
-      }
+      document.getElementById('resetPassError').style.display = 'none';
+      document.getElementById('resetPassModal').style.display = 'flex';
+      setTimeout(() => document.getElementById('newPassInput').focus(), 100);
     }
-    function closeEditPass() {
-      document.getElementById('editPassModal').style.display = 'none';
+    function closeResetPass() {
+      resetTarget = null;
+      document.getElementById('resetPassModal').style.display = 'none';
     }
-    function togglePassVisibility() {
-      const inp = document.getElementById('currentPassDisplay');
-      inp.type = inp.type === 'password' ? 'text' : 'password';
-    }
-
     async function saveNewPassword() {
       const newPass = document.getElementById('newPassInput').value.trim();
-      const errEl = document.getElementById('editPassError');
+      const errEl = document.getElementById('resetPassError');
       if (!newPass) { errEl.textContent = 'กรุณากรอกรหัสผ่านใหม่'; errEl.style.display = 'block'; return; }
-
       const btn = document.getElementById('savePassBtn');
       btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
       errEl.style.display = 'none';
       try {
-        const r = await apiPost({ action: 'updateUserPassword', username: editTarget.username, newPassword: newPass });
+        const r = await apiPost({ action: 'updateUserPassword', username: resetTarget.username, newPassword: newPass });
         if (r.success) {
-          closeEditPass();
-          alert(`✅ เปลี่ยนรหัสผ่านของ ${editTarget.displayName} เรียบร้อยแล้ว`);
+          closeResetPass();
+          alert(`✅ Reset รหัสผ่านของ ${resetTarget.displayName} เรียบร้อยแล้ว`);
         } else {
           errEl.textContent = r.message || 'บันทึกไม่สำเร็จ';
           errEl.style.display = 'block';
@@ -288,10 +198,11 @@
         errEl.textContent = 'เกิดข้อผิดพลาด: ' + e.message;
         errEl.style.display = 'block';
       } finally {
-        btn.disabled = false; btn.textContent = 'บันทึกรหัสใหม่';
+        btn.disabled = false; btn.textContent = 'บันทึก';
       }
     }
 
+    // ===== ADD USER =====
     async function addUser() {
       const username    = document.getElementById('uUsername').value.trim();
       const password    = document.getElementById('uPassword').value.trim();
@@ -299,12 +210,10 @@
       const displayName = document.getElementById('uDisplayName').value.trim();
       const errEl = document.getElementById('addUserError');
       errEl.style.display = 'none';
-
       if (!username || !password || !role || !displayName) {
         errEl.textContent = 'กรุณากรอกข้อมูลให้ครบทุกช่อง';
         errEl.style.display = 'block'; return;
       }
-
       const btn = document.getElementById('addUserBtn');
       btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
       try {
@@ -327,6 +236,7 @@
       }
     }
 
+    // ===== DELETE USER =====
     function openConfirm(rowIndex, name) {
       deleteTarget = rowIndex;
       document.getElementById('confirmName').textContent = name;
