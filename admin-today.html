@@ -406,34 +406,38 @@
       const person   = document.getElementById('filterPerson').value;
       const type     = document.getElementById('filterType').value;
       const priority = document.getElementById('filterPriority').value;
-      const range    = getDateRange();
 
-      // 1. กรองตาม deadline
-      //    วันนี้: งานที่ยังไม่เสร็จ deadline ≤ วันนี้ + งานเสร็จแล้ว deadline = วันนี้
       let base;
-      if (activeDateFilter === 'today') {
-        const todayEnd = range ? range.to : new Date();
-        const todayStart = todayThai();
-        base = allTasks.filter(t => {
-          const d = parseDateThai(t.deadline || t.dateAdded);
-          if (!d) return false;
-          if (t.status === 'เสร็จเรียบร้อย') return d >= todayStart && d <= todayEnd;
-          return d <= todayEnd; // ยังไม่เสร็จ: ≤ วันนี้ (รวมค้าง)
-        });
+
+      if (activeCard === 'all') {
+        // ทั้งหมด → กรองตามวันที่
+        const range = getDateRange();
+        if (activeDateFilter === 'today') {
+          const todayEnd = todayThai(); todayEnd.setHours(23,59,59,999);
+          const todayStart = todayThai();
+          base = allTasks.filter(t => {
+            const d = parseDateThai(t.deadline || t.dateAdded);
+            if (!d) return false;
+            if (t.status === 'เสร็จเรียบร้อย') return d >= todayStart && d <= todayEnd;
+            return d <= todayEnd;
+          });
+        } else {
+          base = allTasks.filter(t => isInRange(t.deadline || t.dateAdded, range));
+        }
+        document.getElementById('listTitle').textContent = `📋 ทั้งหมด — ${DATE_LABEL[activeDateFilter]}`;
       } else {
-        base = allTasks.filter(t => isInRange(t.deadline || t.dateAdded, range));
+        // กดปุ่มสถานะ → แสดงทุกงานสถานะนั้น ไม่กรองวัน
+        base = allTasks.filter(t => {
+          if (activeCard === 'notstarted') return !t.status || t.status === 'ยังไม่เริ่ม';
+          if (activeCard === 'inprogress') return IN_PROGRESS.includes(t.status);
+          if (activeCard === 'done')       return t.status === 'เสร็จเรียบร้อย';
+          if (activeCard === 'near')       return t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย';
+          return true;
+        });
+        document.getElementById('listTitle').textContent = `📋 ${CARD_LABEL[activeCard]} — ทั้งหมด`;
       }
 
-      // 2. กรองตาม stat card
-      base = base.filter(t => {
-        if (activeCard === 'notstarted') return !t.status || t.status === 'ยังไม่เริ่ม';
-        if (activeCard === 'inprogress') return IN_PROGRESS.includes(t.status);
-        if (activeCard === 'done')       return t.status === 'เสร็จเรียบร้อย';
-        if (activeCard === 'near')       return t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย';
-        return true;
-      });
-
-      // 3. กรองตาม person / type / priority
+      // กรองตาม person / type / priority
       base = base.filter(t => {
         if (person && !t.assignTo.split(',').map(s=>s.trim()).includes(person)) return false;
         if (type && t.type !== type) return false;
@@ -443,7 +447,7 @@
 
       updateFilterPill();
 
-      // เรียง: pending ก่อน (ตาม priority แล้ว deadline), done ทีหลัง
+      // เรียง: pending ก่อน (ตาม priority), done ทีหลัง
       base.sort((a, b) => {
         const aDone = a.status === 'เสร็จเรียบร้อย';
         const bDone = b.status === 'เสร็จเรียบร้อย';
@@ -452,8 +456,6 @@
         return 0;
       });
 
-      document.getElementById('listTitle').textContent =
-        `📋 ${CARD_LABEL[activeCard]} — ${DATE_LABEL[activeDateFilter] || 'วันนี้'}`;
       renderFlatList(base);
     }
 
