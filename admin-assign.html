@@ -61,7 +61,13 @@
               </div>
             </div>
             <div class="form-group">
-              <label>Assign ให้ <span style="color:red">*</span></label>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <label style="margin:0">Assign ให้ <span style="color:red">*</span></label>
+                <div style="display:flex;gap:6px">
+                  <button type="button" class="btn btn-outline btn-sm" onclick="selectAllAssignees()">เลือกทุกคน</button>
+                  <button type="button" class="btn btn-outline btn-sm" onclick="clearAllAssignees()">ล้าง</button>
+                </div>
+              </div>
               <div class="checkbox-grid" id="assigneeGrid">
                 <div class="loading" style="padding:8px"><div class="spinner" style="width:20px;height:20px;border-width:2px"></div></div>
               </div>
@@ -180,6 +186,20 @@
       el.classList.toggle('checked', el.querySelector('input').checked);
     }
 
+    function selectAllAssignees() {
+      document.querySelectorAll('#assigneeGrid input').forEach(i => {
+        i.checked = true;
+        i.closest('.checkbox-item').classList.add('checked');
+      });
+    }
+
+    function clearAllAssignees() {
+      document.querySelectorAll('#assigneeGrid input').forEach(i => {
+        i.checked = false;
+        i.closest('.checkbox-item').classList.remove('checked');
+      });
+    }
+
     async function loadRecentTasks() {
       document.getElementById('recentContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
       try {
@@ -193,6 +213,7 @@
         const rows = recent.map(t => `
           <tr>
             <td><div style="font-weight:500;font-size:13px">${escHtml(t.task)}</div></td>
+            <td>${badgePriority(t.priority)}</td>
             <td>
               <div style="display:flex;flex-wrap:wrap;gap:3px">
                 ${t.assignTo.split(',').map(p=>p.trim()).filter(Boolean)
@@ -205,7 +226,7 @@
         document.getElementById('recentContainer').innerHTML = `
           <div class="table-wrap">
             <table>
-              <thead><tr><th>ภารกิจ</th><th>Assign</th><th>สถานะ</th></tr></thead>
+              <thead><tr><th>ภารกิจ</th><th>ความสำคัญ</th><th>Assign</th><th>สถานะ</th></tr></thead>
               <tbody>${rows}</tbody>
             </table>
           </div>`;
