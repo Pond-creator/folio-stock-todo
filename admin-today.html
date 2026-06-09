@@ -429,11 +429,11 @@
         });
       }
 
-      // 2) กรองตาม Deadline range (ถ้าเลือกช่วง)
+      // 2) กรองตามวันเริ่มงาน (startDate) range (ถ้าเลือกช่วง)
       if (range) {
         base = base.filter(t => {
-          if (!t.deadline) return false; // ถ้าไม่มี deadline ไม่แสดงเมื่อกรองวัน
-          return isInRange(t.deadline, range);
+          if (!t.startDate) return false; // ถ้าไม่มีวันเริ่มงาน ไม่แสดงเมื่อกรองวัน
+          return isInRange(t.startDate, range);
         });
       }
 
