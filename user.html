@@ -218,7 +218,8 @@
       document.getElementById('taskCards').innerHTML =
         '<div class="loading-card"><div class="spinner" style="margin:0 auto"></div></div>';
       try {
-        const r = await apiGet({ action: 'getTasks', username: user.username, role: user.role });
+        // ใช้ displayName เพื่อ match กับชื่อใน Assign To ของ Sheet
+        const r = await apiGet({ action: 'getTasks', username: user.displayName || user.username, role: user.role });
         if (r.success) {
           allTasks = r.tasks;
           updateStats();
