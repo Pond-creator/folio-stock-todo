@@ -287,8 +287,6 @@
       if (!timeSlot)      { showErr('assignError', '❌ กรุณาเลือกช่วงเวลาดำเนินงาน'); return; }
       if (!checked.length){ showErr('assignError', '❌ กรุณาเลือกผู้รับงานอย่างน้อย 1 คน'); return; }
 
-      const deadlineRaw = document.getElementById('aDeadline').value;
-      const deadline = deadlineRaw ? fmtThai(deadlineRaw) : '';
       const today = todayStr();
 
       try {
