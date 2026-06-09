@@ -172,10 +172,17 @@
     async function loadBase() {
       try {
         const r = await apiGet({ action: 'getBase' });
-        if (!r.success) return;
+        if (!r.success) {
+          if (!sessionStorage.getItem('baseData'))
+            document.getElementById('assigneeGrid').innerHTML = '<span style="color:#EF4444;font-size:13px">⚠️ โหลดข้อมูลไม่สำเร็จ กด รีเฟรช</span>';
+          return;
+        }
         sessionStorage.setItem('baseData', JSON.stringify(r.base));
         applyBase(r.base);
-      } catch (e) {}
+      } catch (e) {
+        if (!sessionStorage.getItem('baseData'))
+          document.getElementById('assigneeGrid').innerHTML = '<span style="color:#EF4444;font-size:13px">⚠️ ไม่สามารถเชื่อมต่อได้ กรุณารอแล้วลองใหม่</span>';
+      }
     }
 
     function applyBase(base) {
@@ -230,7 +237,10 @@
         const recent = r.tasks.slice(-10).reverse();
         sessionStorage.setItem('recentTasks', JSON.stringify(recent));
         renderRecentTasks(recent);
-      } catch (e) {}
+      } catch (e) {
+        if (!sessionStorage.getItem('recentTasks'))
+          document.getElementById('recentContainer').innerHTML = '<div style="padding:16px;color:#EF4444;font-size:13px">⚠️ โหลดไม่สำเร็จ กรุณากด 🔄</div>';
+      }
     }
 
     function renderRecentTasks(recent) {
