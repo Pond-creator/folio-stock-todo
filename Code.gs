@@ -55,7 +55,7 @@ function handleLogin(username, password) {
   if (!sheet) return { success: false, message: 'ไม่พบ sheet users กรุณาสร้างก่อน' };
   const rows = sheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]).trim() === String(username).trim() &&
+    if (String(rows[i][0]).trim().toLowerCase() === String(username).trim().toLowerCase() &&
         String(rows[i][1]).trim() === String(password).trim()) {
       return {
         success: true,

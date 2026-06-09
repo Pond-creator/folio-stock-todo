@@ -5,6 +5,42 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>FOLIO STOCK - งานวันนี้</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Date filter bar */
+    .date-filter-bar {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      background: white; padding: 12px 20px; border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07); margin-bottom: 16px;
+    }
+    .date-filter-label { font-size: 13px; font-weight: 600; color: #374151; margin-right: 4px; }
+    .date-btn {
+      padding: 6px 14px; border-radius: 8px; border: 1.5px solid #E2E8F0;
+      background: white; font-family: Sarabun,sans-serif; font-size: 13px;
+      font-weight: 600; cursor: pointer; color: #64748B; transition: all .15s;
+    }
+    .date-btn:hover { border-color: #93C5FD; color: #1E40AF; background: #EFF6FF; }
+    .date-btn.active { background: #2563EB; color: white; border-color: #2563EB; }
+    .custom-range { display: flex; align-items: center; gap: 6px; }
+    .custom-range input[type=date] {
+      padding: 5px 10px; border: 1.5px solid #E2E8F0; border-radius: 8px;
+      font-family: Sarabun,sans-serif; font-size: 13px; color: #374151;
+    }
+
+    /* Section header */
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px; background: #F8FAFC; border-bottom: 1px solid #E2E8F0;
+    }
+    .section-title { font-size: 14px; font-weight: 700; color: #374151; display: flex; align-items: center; gap: 6px; }
+    .section-count { background: #E2E8F0; color: #374151; padding: 2px 8px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+    .section-today .section-header { background: #EFF6FF; border-bottom-color: #BFDBFE; }
+    .section-today .section-title { color: #1E40AF; }
+    .section-overdue .section-header { background: #FFF7ED; border-bottom-color: #FED7AA; }
+    .section-overdue .section-title { color: #92400E; }
+
+    /* Active card highlight */
+    .stat-card.active-filter { box-shadow: 0 0 0 3px rgba(37,99,235,.3); }
+  </style>
 </head>
 <body>
   <nav class="navbar">
@@ -23,44 +59,67 @@
   </div>
 
   <div class="main">
-    <!-- stat cards (clickable filter) -->
-    <div class="stats-grid" id="statsGrid">
-      <div class="stat-card blue" onclick="filterByCard('all')" id="card-all" style="cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(37,99,235,.2)'" onmouseout="this.style.boxShadow=''">
+
+    <!-- 5 STAT CARDS -->
+    <div class="stats-grid mb-16" style="grid-template-columns:repeat(5,1fr)">
+      <div class="stat-card blue" id="card-all" onclick="filterByCard('all')" style="cursor:pointer">
         <div class="stat-label">งานทั้งหมด</div>
         <div class="stat-value" id="sTotal">-</div>
-        <div class="stat-sub">กดเพื่อดูทั้งหมด</div>
+        <div class="stat-sub">ดูทั้งหมด</div>
       </div>
-      <div class="stat-card amber" onclick="filterByCard('pending')" id="card-pending" style="cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(217,119,6,.2)'" onmouseout="this.style.boxShadow=''">
+      <div class="stat-card" id="card-notstarted" onclick="filterByCard('notstarted')" style="cursor:pointer;border-left:4px solid #94A3B8">
+        <div class="stat-label">ยังไม่เริ่ม</div>
+        <div class="stat-value" id="sNotStarted" style="color:#64748B">-</div>
+        <div class="stat-sub">ดูงานยังไม่เริ่ม</div>
+      </div>
+      <div class="stat-card amber" id="card-inprogress" onclick="filterByCard('inprogress')" style="cursor:pointer">
         <div class="stat-label">กำลังดำเนินการ</div>
         <div class="stat-value" id="sPending">-</div>
-        <div class="stat-sub">กดเพื่อดูงานค้าง</div>
+        <div class="stat-sub">วางแผน/ทำ/ติดตาม</div>
       </div>
-      <div class="stat-card green" onclick="filterByCard('done')" id="card-done" style="cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(22,163,74,.2)'" onmouseout="this.style.boxShadow=''">
+      <div class="stat-card green" id="card-done" onclick="filterByCard('done')" style="cursor:pointer">
         <div class="stat-label">เสร็จแล้ว</div>
         <div class="stat-value" id="sDone">-</div>
-        <div class="stat-sub">กดเพื่อดูงานเสร็จ</div>
+        <div class="stat-sub">ดูงานเสร็จ</div>
       </div>
-      <div class="stat-card red" onclick="filterByCard('near')" id="card-near" style="cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 16px rgba(220,38,38,.2)'" onmouseout="this.style.boxShadow=''">
+      <div class="stat-card red" id="card-near" onclick="filterByCard('near')" style="cursor:pointer">
         <div class="stat-label">ใกล้ Deadline</div>
         <div class="stat-value" id="sNear">-</div>
-        <div class="stat-sub">กดเพื่อดูงานด่วน</div>
+        <div class="stat-sub">≤ 3 วัน</div>
       </div>
     </div>
 
-    <!-- near deadline alert -->
+    <!-- NEAR DEADLINE ALERT -->
     <div id="nearAlert"></div>
 
-    <!-- filter -->
-    <div class="card mb-24">
+    <!-- MAIN CARD -->
+    <div class="card">
       <div class="card-header">
-        <span class="card-title">📋 งานที่ยังไม่เสร็จทั้งหมด</span>
+        <span class="card-title" id="listTitle">📋 งานวันนี้และยังไม่เสร็จ</span>
         <div class="flex-gap">
-          <button class="btn btn-outline btn-sm" onclick="loadAll()">🔄 รีเฟรช</button>
+          <button class="btn btn-outline btn-sm" onclick="resetAndLoad()">🔄 รีเฟรช</button>
           <button class="btn btn-primary btn-sm" onclick="location.href='admin-assign.html'">＋ มอบหมายงาน</button>
         </div>
       </div>
-      <div class="card-body" style="padding-top:12px;padding-bottom:12px">
-        <div class="filter-bar">
+
+      <!-- DATE FILTER -->
+      <div style="padding:12px 20px;border-bottom:1px solid #F1F5F9">
+        <div class="date-filter-bar" style="margin-bottom:0;box-shadow:none;padding:0;background:transparent">
+          <span class="date-filter-label">📅 ช่วงเวลา:</span>
+          <button class="date-btn active" id="dbToday"     onclick="setDateFilter('today')">วันนี้</button>
+          <button class="date-btn"         id="dbYesterday" onclick="setDateFilter('yesterday')">เมื่อวาน</button>
+          <button class="date-btn"         id="dbWeek"      onclick="setDateFilter('week')">7 วัน</button>
+          <button class="date-btn"         id="dbMonth"     onclick="setDateFilter('month')">เดือนนี้</button>
+          <button class="date-btn"         id="dbCustom"    onclick="setDateFilter('custom')">เลือกช่วง</button>
+          <div class="custom-range" id="customRange" style="display:none">
+            <input type="date" id="dateFrom">
+            <span style="color:#64748B;font-size:13px">ถึง</span>
+            <input type="date" id="dateTo">
+            <button class="btn btn-primary btn-sm" onclick="applyFilter()">ดู</button>
+          </div>
+        </div>
+        <!-- Other filters -->
+        <div class="filter-bar" style="margin-top:10px;margin-bottom:0">
           <select id="filterPerson" onchange="applyFilter()">
             <option value="">ทุกคน</option>
           </select>
@@ -74,18 +133,9 @@
             <option>ไม่่สำคัญแต่เร่งด่วน</option>
             <option>รอได้ไม่สำคัญ</option>
           </select>
-          <select id="filterStatus" onchange="applyFilter()">
-            <option value="">ทุกสถานะ</option>
-            <option>ยังไม่เริ่ม</option>
-            <option>กำลังวางแผน</option>
-            <option>ลงมือทำ</option>
-            <option>ติดตามผล</option>
-          </select>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
-            <input type="checkbox" id="showDone" onchange="applyFilter()"> แสดงที่เสร็จแล้วด้วย
-          </label>
         </div>
       </div>
+
       <div id="taskContainer">
         <div class="loading"><div class="spinner"></div> กำลังโหลด...</div>
       </div>
@@ -100,7 +150,7 @@
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
       <div class="modal-body">
-        <div id="updateTaskName" style="font-weight:600;margin-bottom:16px;color:#0F172A"></div>
+        <div id="updateTaskName" style="font-weight:600;margin-bottom:16px;color:#0F172A;font-size:15px"></div>
         <div class="form-group">
           <label>สถานะ</label>
           <select id="uStatus">
@@ -123,7 +173,10 @@
   <script src="js/auth.js"></script>
   <script src="js/api.js"></script>
   <script>
-    let user, allTasks = [], editRowIndex = null;
+    let user, allTasks = [], activeCard = 'all', activeDateFilter = 'today', editRowIndex = null;
+
+    const PRIO = { 'ด่วนมาก':1,'ไม่เร่งด่วนแต่สำคัญ':2,'ไม่่สำคัญแต่เร่งด่วน':3,'ไม่สำคัญแต่เร่งด่วน':3,'รอได้ไม่สำคัญ':4 };
+    const IN_PROGRESS = ['กำลังวางแผน','ลงมือทำ','ติดตามผล'];
 
     async function init() {
       user = requireAuth('admin');
@@ -141,73 +194,228 @@
         ]);
         if (tr.success) {
           allTasks = tr.tasks;
-          buildPersonFilter();
-          buildTypeFilter();
+          buildFilters();
           applyFilter();
         }
         if (sr.success) updateStats(sr);
       } catch (e) { showError('taskContainer', e.message); }
     }
 
+    async function resetAndLoad() {
+      activeDateFilter = 'today';
+      activeCard = 'all';
+      setDateBtnActive('dbToday');
+      highlightCard('all');
+      document.getElementById('filterPerson').value = '';
+      document.getElementById('filterType').value = '';
+      document.getElementById('filterPriority').value = '';
+      document.getElementById('customRange').style.display = 'none';
+      await loadAll();
+    }
+
     function updateStats(s) {
-      document.getElementById('sTotal').textContent = s.total;
-      document.getElementById('sPending').textContent = s.pending;
-      document.getElementById('sDone').textContent = s.done;
-      document.getElementById('sNear').textContent = s.nearDeadline;
+      const notStarted = allTasks.filter(t => !t.status || t.status === 'ยังไม่เริ่ม').length;
+      const inProgress = allTasks.filter(t => IN_PROGRESS.includes(t.status)).length;
+      document.getElementById('sTotal').textContent      = s.total;
+      document.getElementById('sNotStarted').textContent = notStarted;
+      document.getElementById('sPending').textContent    = inProgress;
+      document.getElementById('sDone').textContent       = s.done;
+      document.getElementById('sNear').textContent       = s.nearDeadline;
 
       const near = allTasks.filter(t => t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย');
       document.getElementById('nearAlert').innerHTML = near.length
-        ? `<div class="alert alert-danger" style="margin-bottom:16px">🔔 งานใกล้ Deadline (≤3 วัน): ${near.map(t => `<strong>${escHtml(t.task)}</strong>`).join(', ')}</div>`
+        ? `<div class="alert alert-danger" style="margin-bottom:16px">🔔 งานใกล้ Deadline: ${near.map(t=>`<strong>${escHtml(t.task)}</strong>`).join(', ')}</div>`
         : '';
     }
 
-    function buildPersonFilter() {
-      const persons = [...new Set(allTasks.flatMap(t => t.assignTo.split(',').map(s => s.trim()).filter(Boolean)))].sort();
-      const sel = document.getElementById('filterPerson');
-      const cur = sel.value;
-      sel.innerHTML = '<option value="">ทุกคน</option>' + persons.map(p => `<option>${p}</option>`).join('');
-      sel.value = cur;
+    function buildFilters() {
+      const persons = [...new Set(allTasks.flatMap(t=>t.assignTo.split(',').map(s=>s.trim()).filter(Boolean)))].sort();
+      const types   = [...new Set(allTasks.map(t=>t.type).filter(Boolean))].sort();
+      const pSel = document.getElementById('filterPerson');
+      const tSel = document.getElementById('filterType');
+      const pCur = pSel.value, tCur = tSel.value;
+      pSel.innerHTML = '<option value="">ทุกคน</option>' + persons.map(p=>`<option>${p}</option>`).join('');
+      tSel.innerHTML = '<option value="">ทุกประเภท</option>' + types.map(t=>`<option>${t}</option>`).join('');
+      pSel.value = pCur; tSel.value = tCur;
     }
 
-    function buildTypeFilter() {
-      const types = [...new Set(allTasks.map(t => t.type).filter(Boolean))].sort();
-      const sel = document.getElementById('filterType');
-      const cur = sel.value;
-      sel.innerHTML = '<option value="">ทุกประเภท</option>' + types.map(t => `<option>${t}</option>`).join('');
-      sel.value = cur;
+    // ===== DATE FILTER =====
+    function setDateFilter(f) {
+      activeDateFilter = f;
+      activeCard = 'all';
+      highlightCard('all');
+      ['dbToday','dbYesterday','dbWeek','dbMonth','dbCustom'].forEach(id => {
+        document.getElementById(id).classList.remove('active');
+      });
+      const map = { today:'dbToday', yesterday:'dbYesterday', week:'dbWeek', month:'dbMonth', custom:'dbCustom' };
+      document.getElementById(map[f]).classList.add('active');
+      document.getElementById('customRange').style.display = f === 'custom' ? 'flex' : 'none';
+      if (f !== 'custom') applyFilter();
     }
 
+    function setDateBtnActive(id) {
+      ['dbToday','dbYesterday','dbWeek','dbMonth','dbCustom'].forEach(i => document.getElementById(i).classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function getDateRange() {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const toDate = new Date(); toDate.setHours(23,59,59,999);
+
+      if (activeDateFilter === 'today') return { from: today, to: toDate };
+      if (activeDateFilter === 'yesterday') {
+        const y = new Date(today); y.setDate(y.getDate()-1);
+        const ye = new Date(y); ye.setHours(23,59,59,999);
+        return { from: y, to: ye };
+      }
+      if (activeDateFilter === 'week') {
+        const w = new Date(today); w.setDate(w.getDate()-6);
+        return { from: w, to: toDate };
+      }
+      if (activeDateFilter === 'month') {
+        const m = new Date(today.getFullYear(), today.getMonth(), 1);
+        return { from: m, to: toDate };
+      }
+      if (activeDateFilter === 'custom') {
+        const fromVal = document.getElementById('dateFrom').value;
+        const toVal   = document.getElementById('dateTo').value;
+        if (!fromVal || !toVal) return null;
+        const from = new Date(fromVal); from.setHours(0,0,0,0);
+        const to   = new Date(toVal);   to.setHours(23,59,59,999);
+        return { from, to };
+      }
+      return null;
+    }
+
+    function parseDateThai(str) {
+      if (!str) return null;
+      const p = str.split('/');
+      if (p.length !== 3) return null;
+      return new Date(Number(p[2]), Number(p[1])-1, Number(p[0]));
+    }
+
+    function isInRange(dateStr, range) {
+      if (!range) return true;
+      const d = parseDateThai(dateStr);
+      if (!d) return false;
+      return d >= range.from && d <= range.to;
+    }
+
+    // ===== CARD FILTER =====
+    function filterByCard(type) {
+      activeCard = type;
+      highlightCard(type);
+      applyFilter();
+    }
+
+    function highlightCard(type) {
+      ['all','notstarted','inprogress','done','near'].forEach(c => {
+        const el = document.getElementById('card-'+c);
+        if (el) el.classList.toggle('active-filter', c === type);
+      });
+    }
+
+    // ===== MAIN FILTER & RENDER =====
     function applyFilter() {
-      const person = document.getElementById('filterPerson').value;
-      const type = document.getElementById('filterType').value;
+      const person   = document.getElementById('filterPerson').value;
+      const type     = document.getElementById('filterType').value;
       const priority = document.getElementById('filterPriority').value;
-      const status = document.getElementById('filterStatus').value;
-      const showDone = document.getElementById('showDone').checked;
+      const range    = getDateRange();
 
-      const filtered = allTasks.filter(t => {
-        if (!showDone && t.status === 'เสร็จเรียบร้อย') return false;
+      // filter by card type
+      let base = allTasks.filter(t => {
+        if (activeCard === 'notstarted') return !t.status || t.status === 'ยังไม่เริ่ม';
+        if (activeCard === 'inprogress') return IN_PROGRESS.includes(t.status);
+        if (activeCard === 'done')       return t.status === 'เสร็จเรียบร้อย';
+        if (activeCard === 'near')       return t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย';
+        return true; // 'all'
+      });
+
+      // filter by other filters
+      base = base.filter(t => {
         if (person && !t.assignTo.split(',').map(s=>s.trim()).includes(person)) return false;
         if (type && t.type !== type) return false;
         if (priority && t.priority !== priority) return false;
-        if (status && t.status !== status) return false;
         return true;
-      }).reverse();
-      renderTasks(filtered);
+      });
+
+      // if today view + all card → split into 2 sections
+      if (activeDateFilter === 'today' && activeCard === 'all') {
+        renderTodayView(base);
+        document.getElementById('listTitle').textContent = '📋 งานวันนี้และยังไม่เสร็จ';
+      } else {
+        // filter by date range
+        const filtered = base.filter(t => isInRange(t.deadline || t.dateAdded, range));
+        renderFlatList(filtered);
+        const labels = { yesterday:'เมื่อวาน', week:'7 วันที่ผ่านมา', month:'เดือนนี้', custom:'ช่วงที่เลือก' };
+        const cardLabels = { notstarted:'ยังไม่เริ่ม', inprogress:'กำลังดำเนินการ', done:'เสร็จแล้ว', near:'ใกล้ Deadline', all:'ทั้งหมด' };
+        document.getElementById('listTitle').textContent = `📋 ${cardLabels[activeCard]} — ${labels[activeDateFilter] || 'วันนี้'}`;
+      }
     }
 
-    function renderTasks(tasks) {
+    function renderTodayView(tasks) {
+      const todayStr = fmtDateThai(new Date());
+      const notDone = tasks.filter(t => t.status !== 'เสร็จเรียบร้อย');
+
+      // Section 1: deadline = today, sorted by priority
+      const todayTasks = notDone
+        .filter(t => t.deadline === todayStr)
+        .sort((a,b) => (PRIO[a.priority]||9) - (PRIO[b.priority]||9));
+
+      // Section 2: deadline < today OR no deadline, sorted newest deadline first
+      const todayDate = new Date(); todayDate.setHours(0,0,0,0);
+      const prevTasks = notDone
+        .filter(t => {
+          if (t.deadline === todayStr) return false;
+          if (!t.deadline) return true;
+          const d = parseDateThai(t.deadline);
+          return d && d < todayDate;
+        })
+        .sort((a,b) => {
+          const da = parseDateThai(a.deadline) || new Date(0);
+          const db = parseDateThai(b.deadline) || new Date(0);
+          return db - da;
+        });
+
+      let html = '';
+
+      // Section 1
+      html += `<div class="section-today">
+        <div class="section-header">
+          <span class="section-title">🔥 งานที่ต้องทำวันนี้ <span class="section-count">${todayTasks.length}</span></span>
+          <span style="font-size:12px;color:#64748B">เรียงตามความสำคัญ</span>
+        </div>
+        ${todayTasks.length ? taskTable(todayTasks) : '<div class="empty-state" style="padding:24px"><span class="icon" style="font-size:32px">✅</span><p>ไม่มีงานวันนี้</p></div>'}
+      </div>`;
+
+      // Section 2
+      html += `<div class="section-overdue">
+        <div class="section-header">
+          <span class="section-title">📂 งานค้างจากวันก่อน <span class="section-count">${prevTasks.length}</span></span>
+          <span style="font-size:12px;color:#64748B">เรียงวันล่าสุดก่อน</span>
+        </div>
+        ${prevTasks.length ? taskTable(prevTasks) : '<div class="empty-state" style="padding:24px"><span class="icon" style="font-size:32px">🎉</span><p>ไม่มีงานค้าง</p></div>'}
+      </div>`;
+
+      document.getElementById('taskContainer').innerHTML = html;
+    }
+
+    function renderFlatList(tasks) {
       if (!tasks.length) {
         document.getElementById('taskContainer').innerHTML =
-          '<div class="empty-state"><span class="icon">✅</span><p>ไม่มีงานที่ตรงเงื่อนไข</p></div>';
+          '<div class="empty-state"><span class="icon">📋</span><p>ไม่มีงานที่ตรงเงื่อนไข</p></div>';
         return;
       }
+      document.getElementById('taskContainer').innerHTML = taskTable(tasks);
+    }
 
+    function taskTable(tasks) {
       const rows = tasks.map(t => `
         <tr class="${t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย' ? 'near-deadline-row' : ''}">
-          <td style="color:#94A3B8;font-size:13px;text-align:center">${t.seq}</td>
+          <td style="color:#94A3B8;font-size:13px;text-align:center;width:36px">${t.seq}</td>
           <td>
             <div class="task-name">${escHtml(t.task)}</div>
-            <div class="text-muted" style="font-size:12px">${t.dateAdded || ''}</div>
+            <div class="text-muted" style="font-size:12px">${t.dateAdded||''}</div>
           </td>
           <td><span style="font-size:13px">${escHtml(t.type||'-')}</span></td>
           <td>${badgePriority(t.priority)}</td>
@@ -221,24 +429,20 @@
             <div style="font-size:13px;font-weight:500">${t.deadline||'-'}</div>
             ${daysLeftHtml(t.daysLeft)}
           </td>
-          <td>${t.timeSlot||'-'}</td>
+          <td><span style="font-size:13px">${t.timeSlot||'-'}</span></td>
           <td>${badgeStatus(t.status)}</td>
           <td style="min-width:100px">${progressBar(t.percent)}</td>
-          <td>
-            <button class="btn btn-outline btn-sm" onclick="openUpdate(${t.rowIndex})">อัปเดต</button>
-          </td>
+          <td><button class="btn btn-outline btn-sm" onclick="openUpdate(${t.rowIndex})">อัปเดต</button></td>
         </tr>`).join('');
 
-      document.getElementById('taskContainer').innerHTML = `
-        <div class="table-wrap">
-          <table>
-            <thead><tr>
-              <th>#</th><th>ภารกิจ / งาน</th><th>ประเภท</th><th>ความสำคัญ</th>
-              <th>Assign to</th><th>Deadline</th><th>ช่วงเวลา</th><th>สถานะ</th><th>ความคืบหน้า</th><th></th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>`;
+      return `<div class="table-wrap"><table>
+        <thead><tr>
+          <th>#</th><th>ภารกิจ / งาน</th><th>ประเภท</th><th>ความสำคัญ</th>
+          <th>Assign to</th><th>Deadline</th><th>ช่วงเวลา</th><th>สถานะ</th>
+          <th>ความคืบหน้า</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
     }
 
     function openUpdate(rowIndex) {
@@ -251,7 +455,7 @@
     }
 
     async function saveStatus() {
-      const status = document.getElementById('uStatus').value;
+      const status  = document.getElementById('uStatus').value;
       const percent = PERCENT_MAP[status] || '0%';
       const doneDate = status === 'เสร็จเรียบร้อย' ? todayStr() : '';
       try {
@@ -261,44 +465,12 @@
       } catch (e) { alert('อัปเดตไม่สำเร็จ: ' + e.message); }
     }
 
-    function filterByCard(type) {
-      const statusEl = document.getElementById('filterStatus');
-      const showDoneEl = document.getElementById('showDone');
-      // reset filters first
-      document.getElementById('filterPerson').value = '';
-      document.getElementById('filterType').value = '';
-      document.getElementById('filterPriority').value = '';
-      statusEl.value = '';
-      showDoneEl.checked = false;
-
-      if (type === 'done') {
-        showDoneEl.checked = true;
-        statusEl.value = 'เสร็จเรียบร้อย';
-      } else if (type === 'pending') {
-        // show all non-done
-      } else if (type === 'near') {
-        showDoneEl.checked = false;
-      }
-
-      // highlight active card
-      ['all','pending','done','near'].forEach(c => {
-        document.getElementById('card-'+c).style.outline = c === type ? '2px solid currentColor' : '';
-      });
-
-      if (type === 'near') {
-        // custom filter for near deadline
-        const filtered = allTasks.filter(t => t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย').reverse();
-        renderTasks(filtered);
-      } else {
-        applyFilter();
-      }
-    }
-
     function closeModal() { document.getElementById('updateModal').style.display = 'none'; }
-    function todayStr() {
-      const d = new Date();
+
+    function fmtDateThai(d) {
       return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
     }
+    function todayStr() { return fmtDateThai(new Date()); }
     function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
     init();
