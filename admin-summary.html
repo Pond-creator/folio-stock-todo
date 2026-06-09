@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>FOLIO STOCK - สรุปผล</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    @media print {
+      .navbar, .admin-tabs, .no-print { display: none !important; }
+      body { background: white !important; }
+      .main { padding: 0 !important; }
+      .card { box-shadow: none !important; border: 1px solid #E2E8F0 !important; }
+      .progress-bar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .stat-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
 </head>
 <body>
   <nav class="navbar">
@@ -20,7 +31,8 @@
   <div class="main">
     <div class="flex-between mb-24">
       <h1 class="page-title">📊 สรุปผลการดำเนินงาน</h1>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px" class="no-print">
+        <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ บันทึก PDF</button>
         <button class="btn btn-outline btn-sm" onclick="exportSummary()">⬇️ Export CSV</button>
         <button class="btn btn-outline btn-sm" onclick="loadSummary()">🔄 รีเฟรช</button>
       </div>
