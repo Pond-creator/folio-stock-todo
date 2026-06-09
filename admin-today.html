@@ -174,7 +174,8 @@
       <div style="padding:12px 20px;border-bottom:1px solid #F1F5F9">
         <div class="date-filter-bar">
           <span class="date-filter-label">📅 ช่วงเวลา:</span>
-          <button class="date-btn active" id="dbToday"      onclick="setDateFilter('today')">วันนี้</button>
+          <button class="date-btn active" id="dbAll"        onclick="setDateFilter('all')">ทุกวัน</button>
+          <button class="date-btn"        id="dbToday"      onclick="setDateFilter('today')">วันนี้</button>
           <button class="date-btn"        id="dbYesterday"  onclick="setDateFilter('yesterday')">เมื่อวาน</button>
           <button class="date-btn"        id="dbWeek"       onclick="setDateFilter('week')">7 วัน</button>
           <button class="date-btn"        id="dbMonth"      onclick="setDateFilter('month')">เดือนนี้</button>
@@ -241,12 +242,12 @@
   <script src="js/auth.js"></script>
   <script src="js/api.js"></script>
   <script>
-    let user, allTasks = [], activeCard = 'all', activeDateFilter = 'today', editRowIndex = null;
+    let user, allTasks = [], activeCard = 'all', activeDateFilter = 'all', editRowIndex = null;
 
     const PRIO = { 'ด่วนมาก':1,'ไม่เร่งด่วนแต่สำคัญ':2,'ไม่่สำคัญแต่เร่งด่วน':3,'ไม่สำคัญแต่เร่งด่วน':3,'รอได้ไม่สำคัญ':4 };
     const IN_PROGRESS = ['กำลังวางแผน','ลงมือทำ','ติดตามผล'];
     const CARD_LABEL = { all:'ทั้งหมด', notstarted:'ยังไม่เริ่ม', inprogress:'กำลังดำเนินการ', done:'เสร็จแล้ว', near:'ใกล้ Deadline' };
-    const DATE_LABEL = { today:'วันนี้', yesterday:'เมื่อวาน', week:'7 วัน', month:'เดือนนี้', custom:'ช่วงที่เลือก' };
+    const DATE_LABEL = { all:'ทุกวัน', today:'วันนี้', yesterday:'เมื่อวาน', week:'7 วัน', month:'เดือนนี้', custom:'ช่วงที่เลือก' };
 
     async function init() {
       user = requireAuth('admin');
@@ -272,9 +273,9 @@
     }
 
     async function resetAndLoad() {
-      activeDateFilter = 'today';
+      activeDateFilter = 'all';
       activeCard = 'all';
-      setDateBtnActive('dbToday');
+      setDateBtnActive('dbAll');
       highlightCard('all');
       document.getElementById('filterPerson').value = '';
       document.getElementById('filterType').value = '';
@@ -312,13 +313,14 @@
     // ===== DATE FILTER =====
     function setDateFilter(f) {
       activeDateFilter = f;
-      setDateBtnActive('db' + f.charAt(0).toUpperCase() + f.slice(1));
+      const idMap = { all:'dbAll', today:'dbToday', yesterday:'dbYesterday', week:'dbWeek', month:'dbMonth', custom:'dbCustom' };
+      setDateBtnActive(idMap[f]);
       document.getElementById('customRange').style.display = f === 'custom' ? 'flex' : 'none';
       if (f !== 'custom') applyFilter();
     }
 
     function setDateBtnActive(id) {
-      ['dbToday','dbYesterday','dbWeek','dbMonth','dbCustom'].forEach(i => document.getElementById(i).classList.remove('active'));
+      ['dbAll','dbToday','dbYesterday','dbWeek','dbMonth','dbCustom'].forEach(i => document.getElementById(i).classList.remove('active'));
       document.getElementById(id).classList.add('active');
     }
 
@@ -331,13 +333,15 @@
     }
 
     function getDateRange() {
+      // 'all' = ไม่กรองวัน
+      if (activeDateFilter === 'all') return null;
+
       const today = todayThai();
       const toDate = new Date(today); toDate.setHours(23, 59, 59, 999);
 
       if (activeDateFilter === 'today') {
-        // วันนี้ = งาน deadline ≤ วันนี้ (รวมค้างเก่า) ที่ยังไม่เสร็จ
-        // ใช้ from = ไกลพอ, to = สิ้นวันนี้
-        return { from: new Date(2000, 0, 1), to: toDate, todayOnly: false };
+        // วันนี้ = deadline ≤ วันนี้ (รวมงานค้างเก่า) และยังไม่เสร็จ
+        return { from: new Date(2000, 0, 1), to: toDate };
       }
       if (activeDateFilter === 'yesterday') {
         const y = new Date(today); y.setDate(y.getDate() - 1);
@@ -345,12 +349,14 @@
         return { from: y, to: ye };
       }
       if (activeDateFilter === 'week') {
-        const w = new Date(today); w.setDate(w.getDate() - 6);
-        return { from: w, to: toDate };
+        // 7 วัน = deadline ภายใน 7 วันข้างหน้า (รวมวันนี้)
+        const future = new Date(today); future.setDate(future.getDate() + 6); future.setHours(23,59,59,999);
+        return { from: today, to: future };
       }
       if (activeDateFilter === 'month') {
         const m = new Date(today.getFullYear(), today.getMonth(), 1);
-        return { from: m, to: toDate };
+        const mEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0); mEnd.setHours(23,59,59,999);
+        return { from: m, to: mEnd };
       }
       if (activeDateFilter === 'custom') {
         const fromVal = document.getElementById('dateFrom').value;
@@ -406,15 +412,14 @@
       const person   = document.getElementById('filterPerson').value;
       const type     = document.getElementById('filterType').value;
       const priority = document.getElementById('filterPriority').value;
+      const range    = getDateRange(); // null = ไม่กรองวัน
 
       let base;
 
+      // 1) กรองตาม Card (สถานะ)
       if (activeCard === 'all') {
-        // ทั้งหมด → แสดงทุกงานในระบบ ไม่กรองวัน
         base = [...allTasks];
-        document.getElementById('listTitle').textContent = `📋 งานทั้งหมดในระบบ`;
       } else {
-        // กดปุ่มสถานะ → แสดงทุกงานสถานะนั้น ไม่กรองวัน
         base = allTasks.filter(t => {
           if (activeCard === 'notstarted') return !t.status || t.status === 'ยังไม่เริ่ม';
           if (activeCard === 'inprogress') return IN_PROGRESS.includes(t.status);
@@ -422,10 +427,25 @@
           if (activeCard === 'near')       return t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย';
           return true;
         });
-        document.getElementById('listTitle').textContent = `📋 ${CARD_LABEL[activeCard]} — ทั้งหมด`;
       }
 
-      // กรองตาม person / type / priority
+      // 2) กรองตาม Deadline range (ถ้าเลือกช่วง)
+      if (range) {
+        base = base.filter(t => {
+          if (!t.deadline) return false; // ถ้าไม่มี deadline ไม่แสดงเมื่อกรองวัน
+          return isInRange(t.deadline, range);
+        });
+      }
+
+      // 3) อัปเดต title
+      const dateLabel = activeDateFilter !== 'all' ? ` · ${DATE_LABEL[activeDateFilter]}` : '';
+      if (activeCard === 'all') {
+        document.getElementById('listTitle').textContent = `📋 งานทั้งหมดในระบบ${dateLabel}`;
+      } else {
+        document.getElementById('listTitle').textContent = `📋 ${CARD_LABEL[activeCard]}${dateLabel}`;
+      }
+
+      // 4) กรองตาม person / type / priority
       base = base.filter(t => {
         if (person && !t.assignTo.split(',').map(s=>s.trim()).includes(person)) return false;
         if (type && t.type !== type) return false;
@@ -451,15 +471,29 @@
 
     function updateFilterPill() {
       const pill = document.getElementById('activeFilterPill');
-      if (activeCard === 'all') {
+      const hasCardFilter = activeCard !== 'all';
+      const hasDateFilter = activeDateFilter !== 'all';
+      if (!hasCardFilter && !hasDateFilter) {
         pill.style.display = 'none';
         return;
       }
+      const parts = [];
+      if (hasCardFilter) parts.push(CARD_LABEL[activeCard]);
+      if (hasDateFilter) parts.push(DATE_LABEL[activeDateFilter]);
       pill.style.display = 'inline-flex';
       pill.innerHTML = `<span class="filter-active-pill">
-        🔍 กรองตาม: ${CARD_LABEL[activeCard]}
-        <button onclick="filterByCard('all')" title="ล้างตัวกรอง">✕</button>
+        🔍 กรองตาม: ${parts.join(' · ')}
+        <button onclick="clearAllFilters()" title="ล้างตัวกรอง">✕</button>
       </span>`;
+    }
+
+    function clearAllFilters() {
+      activeCard = 'all';
+      activeDateFilter = 'all';
+      highlightCard('all');
+      setDateBtnActive('dbAll');
+      document.getElementById('customRange').style.display = 'none';
+      applyFilter();
     }
 
     function renderTodayView(tasks) {
