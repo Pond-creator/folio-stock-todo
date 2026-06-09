@@ -83,7 +83,7 @@
         <div class="card">
           <div class="card-header">
             <span class="card-title">งานที่มอบหมายล่าสุด</span>
-            <button class="btn btn-outline btn-sm" onclick="loadRecentTasks()">🔄</button>
+            <button class="btn btn-outline btn-sm" id="btnRefreshRecent" onclick="refreshRecent(this)">🔄</button>
           </div>
           <div id="recentContainer">
             <div class="loading"><div class="spinner"></div></div>
@@ -269,6 +269,15 @@
       document.getElementById('cf_assign').innerHTML     = checked.map(p =>
         `<span class="badge badge-planning" style="font-size:12px;margin:2px">${escHtml(p)}</span>`).join('');
       document.getElementById('confirmModal').style.display = 'flex';
+    }
+
+    async function refreshRecent(btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle"></span>';
+      sessionStorage.removeItem('recentTasks'); // ล้าง cache บังคับโหลดใหม่
+      await loadRecentTasks();
+      btn.disabled = false;
+      btn.innerHTML = '🔄';
     }
 
     function closeConfirm() {
