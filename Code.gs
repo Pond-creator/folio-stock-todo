@@ -71,9 +71,21 @@ function handleLogin(username, password) {
 }
 
 // ===== TASKS =====
+function cleanExpiredOrders(sheet, rows) {
+  // ลบค่าเก่าในคอลัมน์ H ที่วันที่ไม่ตรงกับวันนี้ออกจากชีทอัตโนมัติ
+  const todayStr = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd');
+  for (let i = 1; i < rows.length; i++) {
+    const raw = String(rows[i][7] || '').trim();
+    if (raw && raw.includes(':') && raw.split(':')[0] !== todayStr) {
+      sheet.getRange(i + 1, 8).clearContent();
+    }
+  }
+}
+
 function getTasks(username, role) {
   const sheet = getSheet('to do list');
   const rows = sheet.getDataRange().getValues();
+  cleanExpiredOrders(sheet, rows); // ล้างลำดับเก่าออกอัตโนมัติเมื่อวันเปลี่ยน
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tasks = [];
 
