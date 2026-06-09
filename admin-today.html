@@ -49,6 +49,13 @@
     .stat-card.grey.active-filter  .stat-label,
     .stat-card.grey.active-filter  .stat-value,
     .stat-card.grey.active-filter  .stat-sub { color: white !important; }
+    /* darkred card (overdue) */
+    .stat-card.darkred { border-left: 4px solid #7F1D1D; }
+    .stat-card.darkred .stat-value { color: #7F1D1D; }
+    .stat-card.darkred.active-filter { background: #7F1D1D !important; box-shadow: 0 6px 20px rgba(127,29,29,.35) !important; }
+    .stat-card.darkred.active-filter .stat-label,
+    .stat-card.darkred.active-filter .stat-value,
+    .stat-card.darkred.active-filter .stat-sub { color: white !important; }
 
     /* filter-active indicator in card */
     .card-check {
@@ -125,7 +132,7 @@
   <div class="main">
 
     <!-- 5 STAT CARDS -->
-    <div class="stats-grid mb-16" style="grid-template-columns:repeat(5,1fr)">
+    <div class="stats-grid mb-16" style="grid-template-columns:repeat(6,1fr)">
       <div class="stat-card blue active-filter" id="card-all" onclick="filterByCard('all')" title="ดูทั้งหมด">
         <span class="card-check">✓</span>
         <div class="stat-label">งานทั้งหมด</div>
@@ -155,6 +162,12 @@
         <div class="stat-label">ใกล้ Deadline</div>
         <div class="stat-value" id="sNear">-</div>
         <div class="stat-sub" id="sub-near">คลิกเพื่อกรอง</div>
+      </div>
+      <div class="stat-card darkred" id="card-overdue" onclick="filterByCard('overdue')" title="กรองงานเกิน Deadline">
+        <span class="card-check">✓</span>
+        <div class="stat-label">เกิน Deadline</div>
+        <div class="stat-value" id="sOverdue">-</div>
+        <div class="stat-sub" id="sub-overdue">คลิกเพื่อกรอง</div>
       </div>
     </div>
 
@@ -250,7 +263,7 @@
 
     const PRIO = { 'ด่วนมาก':1,'ไม่เร่งด่วนแต่สำคัญ':2,'ไม่สำคัญแต่เร่งด่วน':3,'รอได้ไม่สำคัญ':4 };
     const IN_PROGRESS = ['กำลังวางแผน','ลงมือทำ','ติดตามผล'];
-    const CARD_LABEL = { all:'ทั้งหมด', notstarted:'ยังไม่เริ่ม', inprogress:'กำลังดำเนินการ', done:'เสร็จแล้ว', near:'ใกล้ Deadline' };
+    const CARD_LABEL = { all:'ทั้งหมด', notstarted:'ยังไม่เริ่ม', inprogress:'กำลังดำเนินการ', done:'เสร็จแล้ว', near:'ใกล้ Deadline', overdue:'เกิน Deadline' };
     const DATE_LABEL = { all:'ทุกวัน', today:'วันนี้', yesterday:'เมื่อวาน', week:'7 วัน', month:'เดือนนี้', custom:'ช่วงที่เลือก' };
 
     async function init() {
@@ -295,14 +308,19 @@
       const done       = allTasks.filter(t => t.status === 'เสร็จเรียบร้อย').length;
       const near       = allTasks.filter(t => t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย');
 
+      const overdue = allTasks.filter(t => t.daysLeft !== null && t.daysLeft < 0 && t.status !== 'เสร็จเรียบร้อย');
+
       document.getElementById('sTotal').textContent      = total;
       document.getElementById('sNotStarted').textContent = notStarted;
       document.getElementById('sPending').textContent    = inProgress;
       document.getElementById('sDone').textContent       = done;
       document.getElementById('sNear').textContent       = near.length;
+      document.getElementById('sOverdue').textContent    = overdue.length;
 
-      document.getElementById('nearAlert').innerHTML = near.length
-        ? `<div class="alert alert-danger" style="margin-bottom:16px">🔔 งานใกล้ Deadline: ${near.map(t=>`<strong>${escHtml(t.task)}</strong>`).join(', ')}</div>`
+      const alertItems = [...overdue.map(t=>`<strong>🔴 ${escHtml(t.task)}</strong> (เกิน ${Math.abs(t.daysLeft)} วัน)`),
+                          ...near.map(t=>`<strong>${escHtml(t.task)}</strong>`)];
+      document.getElementById('nearAlert').innerHTML = alertItems.length
+        ? `<div class="alert alert-danger" style="margin-bottom:16px">🔔 ${alertItems.join(', ')}</div>`
         : '';
     }
 
@@ -403,7 +421,7 @@
     }
 
     function highlightCard(type) {
-      const cards = ['all','notstarted','inprogress','done','near'];
+      const cards = ['all','notstarted','inprogress','done','near','overdue'];
       cards.forEach(c => {
         const el = document.getElementById('card-'+c);
         if (!el) return;
@@ -432,6 +450,7 @@
           if (activeCard === 'inprogress') return IN_PROGRESS.includes(t.status);
           if (activeCard === 'done')       return t.status === 'เสร็จเรียบร้อย';
           if (activeCard === 'near')       return t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย';
+          if (activeCard === 'overdue')    return t.daysLeft !== null && t.daysLeft < 0;
           return true;
         });
       }

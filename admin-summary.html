@@ -58,6 +58,11 @@
         <div class="stat-value" id="sNear">-</div>
         <div class="stat-sub">≤ 3 วัน</div>
       </div>
+      <div class="stat-card" style="border-left:4px solid #7F1D1D">
+        <div class="stat-label" style="color:#7F1D1D">เกิน Deadline</div>
+        <div class="stat-value" id="sOverdue" style="color:#7F1D1D">-</div>
+        <div class="stat-sub">ยังไม่เสร็จ</div>
+      </div>
     </div>
 
     <!-- overall progress -->
@@ -118,7 +123,8 @@
         document.getElementById('sTotal').textContent = r.total;
         document.getElementById('sDone').textContent = r.done;
         document.getElementById('sPending').textContent = r.pending;
-        document.getElementById('sNear').textContent = r.nearDeadline;
+        document.getElementById('sNear').textContent    = r.nearDeadline;
+        document.getElementById('sOverdue').textContent = r.overdue || 0;
 
         const pct = r.total > 0 ? Math.round(r.done / r.total * 100) : 0;
         document.getElementById('sDonePct').textContent = pct + '%';
