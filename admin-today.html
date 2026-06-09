@@ -6,11 +6,61 @@
   <title>FOLIO STOCK - งานวันนี้</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    /* Date filter bar */
+    /* ===== STAT CARDS ===== */
+    .stat-card {
+      cursor: pointer;
+      transition: all .18s ease;
+      position: relative;
+      user-select: none;
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,.12);
+    }
+    .stat-card::after {
+      content: '';
+      position: absolute; inset: 0;
+      border-radius: inherit;
+      border: 2.5px solid transparent;
+      transition: border-color .18s;
+      pointer-events: none;
+    }
+    /* Active state per color */
+    .stat-card.active-filter { transform: translateY(-2px); }
+    .stat-card.blue.active-filter  { background: #1E40AF !important; box-shadow: 0 6px 20px rgba(30,64,175,.35) !important; }
+    .stat-card.blue.active-filter  .stat-label,
+    .stat-card.blue.active-filter  .stat-value,
+    .stat-card.blue.active-filter  .stat-sub { color: white !important; }
+    .stat-card.amber.active-filter { background: #D97706 !important; box-shadow: 0 6px 20px rgba(217,119,6,.35) !important; }
+    .stat-card.amber.active-filter .stat-label,
+    .stat-card.amber.active-filter .stat-value,
+    .stat-card.amber.active-filter .stat-sub { color: white !important; }
+    .stat-card.green.active-filter { background: #16A34A !important; box-shadow: 0 6px 20px rgba(22,163,74,.35) !important; }
+    .stat-card.green.active-filter .stat-label,
+    .stat-card.green.active-filter .stat-value,
+    .stat-card.green.active-filter .stat-sub { color: white !important; }
+    .stat-card.red.active-filter   { background: #DC2626 !important; box-shadow: 0 6px 20px rgba(220,38,38,.35) !important; }
+    .stat-card.red.active-filter   .stat-label,
+    .stat-card.red.active-filter   .stat-value,
+    .stat-card.red.active-filter   .stat-sub { color: white !important; }
+    /* grey card (notstarted) */
+    .stat-card.grey { border-left: 4px solid #94A3B8; }
+    .stat-card.grey.active-filter  { background: #475569 !important; box-shadow: 0 6px 20px rgba(71,85,105,.35) !important; }
+    .stat-card.grey.active-filter  .stat-label,
+    .stat-card.grey.active-filter  .stat-value,
+    .stat-card.grey.active-filter  .stat-sub { color: white !important; }
+
+    /* filter-active indicator in card */
+    .card-check {
+      display: none;
+      position: absolute; top: 8px; right: 10px;
+      font-size: 14px; color: rgba(255,255,255,.85);
+    }
+    .stat-card.active-filter .card-check { display: block; }
+
+    /* ===== DATE FILTER ===== */
     .date-filter-bar {
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-      background: white; padding: 12px 20px; border-radius: 12px;
-      box-shadow: 0 1px 4px rgba(0,0,0,.07); margin-bottom: 16px;
     }
     .date-filter-label { font-size: 13px; font-weight: 600; color: #374151; margin-right: 4px; }
     .date-btn {
@@ -26,6 +76,19 @@
       font-family: Sarabun,sans-serif; font-size: 13px; color: #374151;
     }
 
+    /* active filter pill */
+    .filter-active-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #EFF6FF; border: 1px solid #BFDBFE;
+      color: #1E40AF; border-radius: 99px;
+      padding: 3px 10px; font-size: 12px; font-weight: 600;
+    }
+    .filter-active-pill button {
+      background: none; border: none; cursor: pointer;
+      color: #60A5FA; font-size: 14px; padding: 0; line-height: 1;
+    }
+    .filter-active-pill button:hover { color: #1E40AF; }
+
     /* Section header */
     .section-header {
       display: flex; align-items: center; justify-content: space-between;
@@ -37,9 +100,6 @@
     .section-today .section-title { color: #1E40AF; }
     .section-overdue .section-header { background: #FFF7ED; border-bottom-color: #FED7AA; }
     .section-overdue .section-title { color: #92400E; }
-
-    /* Active card highlight */
-    .stat-card.active-filter { box-shadow: 0 0 0 3px rgba(37,99,235,.3); }
   </style>
 </head>
 <body>
@@ -62,30 +122,35 @@
 
     <!-- 5 STAT CARDS -->
     <div class="stats-grid mb-16" style="grid-template-columns:repeat(5,1fr)">
-      <div class="stat-card blue" id="card-all" onclick="filterByCard('all')" style="cursor:pointer">
+      <div class="stat-card blue active-filter" id="card-all" onclick="filterByCard('all')" title="ดูทั้งหมด">
+        <span class="card-check">✓</span>
         <div class="stat-label">งานทั้งหมด</div>
         <div class="stat-value" id="sTotal">-</div>
-        <div class="stat-sub">ดูทั้งหมด</div>
+        <div class="stat-sub" id="sub-all">ดูทั้งหมด</div>
       </div>
-      <div class="stat-card" id="card-notstarted" onclick="filterByCard('notstarted')" style="cursor:pointer;border-left:4px solid #94A3B8">
+      <div class="stat-card grey" id="card-notstarted" onclick="filterByCard('notstarted')" title="กรองงานยังไม่เริ่ม">
+        <span class="card-check">✓</span>
         <div class="stat-label">ยังไม่เริ่ม</div>
         <div class="stat-value" id="sNotStarted" style="color:#64748B">-</div>
-        <div class="stat-sub">ดูงานยังไม่เริ่ม</div>
+        <div class="stat-sub" id="sub-notstarted">คลิกเพื่อกรอง</div>
       </div>
-      <div class="stat-card amber" id="card-inprogress" onclick="filterByCard('inprogress')" style="cursor:pointer">
+      <div class="stat-card amber" id="card-inprogress" onclick="filterByCard('inprogress')" title="กรองงานกำลังดำเนินการ">
+        <span class="card-check">✓</span>
         <div class="stat-label">กำลังดำเนินการ</div>
         <div class="stat-value" id="sPending">-</div>
-        <div class="stat-sub">วางแผน/ทำ/ติดตาม</div>
+        <div class="stat-sub" id="sub-inprogress">คลิกเพื่อกรอง</div>
       </div>
-      <div class="stat-card green" id="card-done" onclick="filterByCard('done')" style="cursor:pointer">
+      <div class="stat-card green" id="card-done" onclick="filterByCard('done')" title="กรองงานเสร็จแล้ว">
+        <span class="card-check">✓</span>
         <div class="stat-label">เสร็จแล้ว</div>
         <div class="stat-value" id="sDone">-</div>
-        <div class="stat-sub">ดูงานเสร็จ</div>
+        <div class="stat-sub" id="sub-done">คลิกเพื่อกรอง</div>
       </div>
-      <div class="stat-card red" id="card-near" onclick="filterByCard('near')" style="cursor:pointer">
+      <div class="stat-card red" id="card-near" onclick="filterByCard('near')" title="กรองงานใกล้ Deadline">
+        <span class="card-check">✓</span>
         <div class="stat-label">ใกล้ Deadline</div>
         <div class="stat-value" id="sNear">-</div>
-        <div class="stat-sub">≤ 3 วัน</div>
+        <div class="stat-sub" id="sub-near">คลิกเพื่อกรอง</div>
       </div>
     </div>
 
@@ -95,7 +160,10 @@
     <!-- MAIN CARD -->
     <div class="card">
       <div class="card-header">
-        <span class="card-title" id="listTitle">📋 งานวันนี้และยังไม่เสร็จ</span>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span class="card-title" id="listTitle">📋 งานวันนี้และยังไม่เสร็จ</span>
+          <span id="activeFilterPill" style="display:none"></span>
+        </div>
         <div class="flex-gap">
           <button class="btn btn-outline btn-sm" onclick="resetAndLoad()">🔄 รีเฟรช</button>
           <button class="btn btn-primary btn-sm" onclick="location.href='admin-assign.html'">＋ มอบหมายงาน</button>
@@ -104,13 +172,13 @@
 
       <!-- DATE FILTER -->
       <div style="padding:12px 20px;border-bottom:1px solid #F1F5F9">
-        <div class="date-filter-bar" style="margin-bottom:0;box-shadow:none;padding:0;background:transparent">
+        <div class="date-filter-bar">
           <span class="date-filter-label">📅 ช่วงเวลา:</span>
-          <button class="date-btn active" id="dbToday"     onclick="setDateFilter('today')">วันนี้</button>
-          <button class="date-btn"         id="dbYesterday" onclick="setDateFilter('yesterday')">เมื่อวาน</button>
-          <button class="date-btn"         id="dbWeek"      onclick="setDateFilter('week')">7 วัน</button>
-          <button class="date-btn"         id="dbMonth"     onclick="setDateFilter('month')">เดือนนี้</button>
-          <button class="date-btn"         id="dbCustom"    onclick="setDateFilter('custom')">เลือกช่วง</button>
+          <button class="date-btn active" id="dbToday"      onclick="setDateFilter('today')">วันนี้</button>
+          <button class="date-btn"        id="dbYesterday"  onclick="setDateFilter('yesterday')">เมื่อวาน</button>
+          <button class="date-btn"        id="dbWeek"       onclick="setDateFilter('week')">7 วัน</button>
+          <button class="date-btn"        id="dbMonth"      onclick="setDateFilter('month')">เดือนนี้</button>
+          <button class="date-btn"        id="dbCustom"     onclick="setDateFilter('custom')">เลือกช่วง</button>
           <div class="custom-range" id="customRange" style="display:none">
             <input type="date" id="dateFrom">
             <span style="color:#64748B;font-size:13px">ถึง</span>
@@ -177,6 +245,8 @@
 
     const PRIO = { 'ด่วนมาก':1,'ไม่เร่งด่วนแต่สำคัญ':2,'ไม่่สำคัญแต่เร่งด่วน':3,'ไม่สำคัญแต่เร่งด่วน':3,'รอได้ไม่สำคัญ':4 };
     const IN_PROGRESS = ['กำลังวางแผน','ลงมือทำ','ติดตามผล'];
+    const CARD_LABEL = { all:'ทั้งหมด', notstarted:'ยังไม่เริ่ม', inprogress:'กำลังดำเนินการ', done:'เสร็จแล้ว', near:'ใกล้ Deadline' };
+    const DATE_LABEL = { today:'วันนี้', yesterday:'เมื่อวาน', week:'7 วัน', month:'เดือนนี้', custom:'ช่วงที่เลือก' };
 
     async function init() {
       user = requireAuth('admin');
@@ -242,13 +312,7 @@
     // ===== DATE FILTER =====
     function setDateFilter(f) {
       activeDateFilter = f;
-      activeCard = 'all';
-      highlightCard('all');
-      ['dbToday','dbYesterday','dbWeek','dbMonth','dbCustom'].forEach(id => {
-        document.getElementById(id).classList.remove('active');
-      });
-      const map = { today:'dbToday', yesterday:'dbYesterday', week:'dbWeek', month:'dbMonth', custom:'dbCustom' };
-      document.getElementById(map[f]).classList.add('active');
+      setDateBtnActive('db' + f.charAt(0).toUpperCase() + f.slice(1));
       document.getElementById('customRange').style.display = f === 'custom' ? 'flex' : 'none';
       if (f !== 'custom') applyFilter();
     }
@@ -261,8 +325,7 @@
     function getDateRange() {
       const today = new Date(); today.setHours(0,0,0,0);
       const toDate = new Date(); toDate.setHours(23,59,59,999);
-
-      if (activeDateFilter === 'today') return { from: today, to: toDate };
+      if (activeDateFilter === 'today')     return { from: today, to: toDate };
       if (activeDateFilter === 'yesterday') {
         const y = new Date(today); y.setDate(y.getDate()-1);
         const ye = new Date(y); ye.setHours(23,59,59,999);
@@ -303,15 +366,25 @@
 
     // ===== CARD FILTER =====
     function filterByCard(type) {
-      activeCard = type;
-      highlightCard(type);
+      // กดซ้ำ → reset กลับ all
+      if (activeCard === type && type !== 'all') {
+        activeCard = 'all';
+      } else {
+        activeCard = type;
+      }
+      highlightCard(activeCard);
       applyFilter();
     }
 
     function highlightCard(type) {
-      ['all','notstarted','inprogress','done','near'].forEach(c => {
+      const cards = ['all','notstarted','inprogress','done','near'];
+      cards.forEach(c => {
         const el = document.getElementById('card-'+c);
-        if (el) el.classList.toggle('active-filter', c === type);
+        if (!el) return;
+        el.classList.toggle('active-filter', c === type);
+        // Update sub text
+        const sub = document.getElementById('sub-'+c);
+        if (sub) sub.textContent = (c === type) ? '✓ กำลังกรอง' : (c === 'all' ? 'ดูทั้งหมด' : 'คลิกเพื่อกรอง');
       });
     }
 
@@ -322,16 +395,19 @@
       const priority = document.getElementById('filterPriority').value;
       const range    = getDateRange();
 
-      // filter by card type
-      let base = allTasks.filter(t => {
+      // 1. กรองตาม deadline/dateAdded ตามช่วงเวลาที่เลือก
+      let base = allTasks.filter(t => isInRange(t.deadline || t.dateAdded, range));
+
+      // 2. กรองตาม stat card
+      base = base.filter(t => {
         if (activeCard === 'notstarted') return !t.status || t.status === 'ยังไม่เริ่ม';
         if (activeCard === 'inprogress') return IN_PROGRESS.includes(t.status);
         if (activeCard === 'done')       return t.status === 'เสร็จเรียบร้อย';
         if (activeCard === 'near')       return t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย';
-        return true; // 'all'
+        return true;
       });
 
-      // filter by other filters
+      // 3. กรองตาม person / type / priority
       base = base.filter(t => {
         if (person && !t.assignTo.split(',').map(s=>s.trim()).includes(person)) return false;
         if (type && t.type !== type) return false;
@@ -339,30 +415,42 @@
         return true;
       });
 
-      // if today view + all card → split into 2 sections
-      if (activeDateFilter === 'today' && activeCard === 'all') {
-        renderTodayView(base);
-        document.getElementById('listTitle').textContent = '📋 งานวันนี้และยังไม่เสร็จ';
-      } else {
-        // filter by date range
-        const filtered = base.filter(t => isInRange(t.deadline || t.dateAdded, range));
-        renderFlatList(filtered);
-        const labels = { yesterday:'เมื่อวาน', week:'7 วันที่ผ่านมา', month:'เดือนนี้', custom:'ช่วงที่เลือก' };
-        const cardLabels = { notstarted:'ยังไม่เริ่ม', inprogress:'กำลังดำเนินการ', done:'เสร็จแล้ว', near:'ใกล้ Deadline', all:'ทั้งหมด' };
-        document.getElementById('listTitle').textContent = `📋 ${cardLabels[activeCard]} — ${labels[activeDateFilter] || 'วันนี้'}`;
+      updateFilterPill();
+
+      // เรียง: pending ก่อน (ตาม priority), แล้วค่อย done
+      base.sort((a, b) => {
+        const aDone = a.status === 'เสร็จเรียบร้อย';
+        const bDone = b.status === 'เสร็จเรียบร้อย';
+        if (aDone !== bDone) return aDone ? 1 : -1;
+        return (PRIO[a.priority]||9) - (PRIO[b.priority]||9);
+      });
+
+      document.getElementById('listTitle').textContent =
+        `📋 ${CARD_LABEL[activeCard]} — ${DATE_LABEL[activeDateFilter] || 'วันนี้'}`;
+      renderFlatList(base);
+    }
+
+    function updateFilterPill() {
+      const pill = document.getElementById('activeFilterPill');
+      if (activeCard === 'all') {
+        pill.style.display = 'none';
+        return;
       }
+      pill.style.display = 'inline-flex';
+      pill.innerHTML = `<span class="filter-active-pill">
+        🔍 กรองตาม: ${CARD_LABEL[activeCard]}
+        <button onclick="filterByCard('all')" title="ล้างตัวกรอง">✕</button>
+      </span>`;
     }
 
     function renderTodayView(tasks) {
       const todayStr = fmtDateThai(new Date());
       const notDone = tasks.filter(t => t.status !== 'เสร็จเรียบร้อย');
 
-      // Section 1: deadline = today, sorted by priority
       const todayTasks = notDone
         .filter(t => t.deadline === todayStr)
         .sort((a,b) => (PRIO[a.priority]||9) - (PRIO[b.priority]||9));
 
-      // Section 2: deadline < today OR no deadline, sorted newest deadline first
       const todayDate = new Date(); todayDate.setHours(0,0,0,0);
       const prevTasks = notDone
         .filter(t => {
@@ -378,8 +466,6 @@
         });
 
       let html = '';
-
-      // Section 1
       html += `<div class="section-today">
         <div class="section-header">
           <span class="section-title">🔥 งานที่ต้องทำวันนี้ <span class="section-count">${todayTasks.length}</span></span>
@@ -388,7 +474,6 @@
         ${todayTasks.length ? taskTable(todayTasks) : '<div class="empty-state" style="padding:24px"><span class="icon" style="font-size:32px">✅</span><p>ไม่มีงานวันนี้</p></div>'}
       </div>`;
 
-      // Section 2
       html += `<div class="section-overdue">
         <div class="section-header">
           <span class="section-title">📂 งานค้างจากวันก่อน <span class="section-count">${prevTasks.length}</span></span>
