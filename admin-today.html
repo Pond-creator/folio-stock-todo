@@ -322,17 +322,30 @@
       document.getElementById(id).classList.add('active');
     }
 
+    // วันนี้ตามเวลาไทย UTC+7
+    function todayThai() {
+      const now = new Date();
+      const thai = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+      thai.setHours(0, 0, 0, 0);
+      return thai;
+    }
+
     function getDateRange() {
-      const today = new Date(); today.setHours(0,0,0,0);
-      const toDate = new Date(); toDate.setHours(23,59,59,999);
-      if (activeDateFilter === 'today')     return { from: today, to: toDate };
+      const today = todayThai();
+      const toDate = new Date(today); toDate.setHours(23, 59, 59, 999);
+
+      if (activeDateFilter === 'today') {
+        // วันนี้ = งาน deadline ≤ วันนี้ (รวมค้างเก่า) ที่ยังไม่เสร็จ
+        // ใช้ from = ไกลพอ, to = สิ้นวันนี้
+        return { from: new Date(2000, 0, 1), to: toDate, todayOnly: false };
+      }
       if (activeDateFilter === 'yesterday') {
-        const y = new Date(today); y.setDate(y.getDate()-1);
-        const ye = new Date(y); ye.setHours(23,59,59,999);
+        const y = new Date(today); y.setDate(y.getDate() - 1);
+        const ye = new Date(y); ye.setHours(23, 59, 59, 999);
         return { from: y, to: ye };
       }
       if (activeDateFilter === 'week') {
-        const w = new Date(today); w.setDate(w.getDate()-6);
+        const w = new Date(today); w.setDate(w.getDate() - 6);
         return { from: w, to: toDate };
       }
       if (activeDateFilter === 'month') {
@@ -343,8 +356,8 @@
         const fromVal = document.getElementById('dateFrom').value;
         const toVal   = document.getElementById('dateTo').value;
         if (!fromVal || !toVal) return null;
-        const from = new Date(fromVal); from.setHours(0,0,0,0);
-        const to   = new Date(toVal);   to.setHours(23,59,59,999);
+        const from = new Date(fromVal); from.setHours(0, 0, 0, 0);
+        const to   = new Date(toVal);   to.setHours(23, 59, 59, 999);
         return { from, to };
       }
       return null;
@@ -395,8 +408,21 @@
       const priority = document.getElementById('filterPriority').value;
       const range    = getDateRange();
 
-      // 1. กรองตาม deadline/dateAdded ตามช่วงเวลาที่เลือก
-      let base = allTasks.filter(t => isInRange(t.deadline || t.dateAdded, range));
+      // 1. กรองตาม deadline
+      //    วันนี้: งานที่ยังไม่เสร็จ deadline ≤ วันนี้ + งานเสร็จแล้ว deadline = วันนี้
+      let base;
+      if (activeDateFilter === 'today') {
+        const todayEnd = range ? range.to : new Date();
+        const todayStart = todayThai();
+        base = allTasks.filter(t => {
+          const d = parseDateThai(t.deadline || t.dateAdded);
+          if (!d) return false;
+          if (t.status === 'เสร็จเรียบร้อย') return d >= todayStart && d <= todayEnd;
+          return d <= todayEnd; // ยังไม่เสร็จ: ≤ วันนี้ (รวมค้าง)
+        });
+      } else {
+        base = allTasks.filter(t => isInRange(t.deadline || t.dateAdded, range));
+      }
 
       // 2. กรองตาม stat card
       base = base.filter(t => {
@@ -417,12 +443,13 @@
 
       updateFilterPill();
 
-      // เรียง: pending ก่อน (ตาม priority), แล้วค่อย done
+      // เรียง: pending ก่อน (ตาม priority แล้ว deadline), done ทีหลัง
       base.sort((a, b) => {
         const aDone = a.status === 'เสร็จเรียบร้อย';
         const bDone = b.status === 'เสร็จเรียบร้อย';
         if (aDone !== bDone) return aDone ? 1 : -1;
-        return (PRIO[a.priority]||9) - (PRIO[b.priority]||9);
+        if (!aDone) return (PRIO[a.priority]||9) - (PRIO[b.priority]||9);
+        return 0;
       });
 
       document.getElementById('listTitle').textContent =
@@ -553,7 +580,8 @@
     function closeModal() { document.getElementById('updateModal').style.display = 'none'; }
 
     function fmtDateThai(d) {
-      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+      const thai = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+      return `${String(thai.getDate()).padStart(2,'0')}/${String(thai.getMonth()+1).padStart(2,'0')}/${thai.getFullYear()}`;
     }
     function todayStr() { return fmtDateThai(new Date()); }
     function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
