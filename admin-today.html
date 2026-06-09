@@ -169,7 +169,8 @@
           <span id="activeFilterPill" style="display:none"></span>
         </div>
         <div class="flex-gap">
-<button class="btn btn-primary btn-sm" onclick="location.href='admin-assign.html'">＋ มอบหมายงาน</button>
+          <button class="btn btn-outline btn-sm" onclick="exportTasks()">⬇️ Export CSV</button>
+          <button class="btn btn-primary btn-sm" onclick="location.href='admin-assign.html'">＋ มอบหมายงาน</button>
         </div>
       </div>
 
@@ -245,7 +246,7 @@
   <script src="js/auth.js"></script>
   <script src="js/api.js"></script>
   <script>
-    let user, allTasks = [], activeCard = 'all', activeDateFilter = 'all', editRowIndex = null;
+    let user, allTasks = [], filteredTasks = [], activeCard = 'all', activeDateFilter = 'all', editRowIndex = null;
 
     const PRIO = { 'ด่วนมาก':1,'ไม่เร่งด่วนแต่สำคัญ':2,'ไม่สำคัญแต่เร่งด่วน':3,'รอได้ไม่สำคัญ':4 };
     const IN_PROGRESS = ['กำลังวางแผน','ลงมือทำ','ติดตามผล'];
@@ -478,7 +479,20 @@
         return da - db;
       });
 
+      filteredTasks = base;
       renderFlatList(base);
+    }
+
+    function exportTasks() {
+      if (!filteredTasks.length) { alert('ไม่มีข้อมูลที่จะ Export'); return; }
+      const header = ['#','ภารกิจ/งาน','ประเภท','ความสำคัญ','Assign To','วันเริ่มงาน','Deadline','เหลือ (วัน)','ช่วงเวลา','สถานะ','ความคืบหน้า'];
+      const rows = filteredTasks.map(t => [
+        t.seq, t.task, t.type||'', t.priority||'',
+        t.assignTo, t.startDate||'', t.deadline||'',
+        t.daysLeft !== null && t.daysLeft !== undefined ? t.daysLeft : '',
+        t.timeSlot||'', t.status||'', t.percent||'0%'
+      ]);
+      exportCSV([header, ...rows], todayFilename('งานวันนี้'));
     }
 
     function updateFilterPill() {

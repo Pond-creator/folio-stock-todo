@@ -20,7 +20,10 @@
   <div class="main">
     <div class="flex-between mb-24">
       <h1 class="page-title">📊 สรุปผลการดำเนินงาน</h1>
-      <button class="btn btn-outline btn-sm" onclick="loadSummary()">🔄 รีเฟรช</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="exportSummary()">⬇️ Export CSV</button>
+        <button class="btn btn-outline btn-sm" onclick="loadSummary()">🔄 รีเฟรช</button>
+      </div>
     </div>
 
     <!-- stat cards -->
@@ -82,7 +85,7 @@
   <script src="js/auth.js"></script>
   <script src="js/api.js"></script>
   <script>
-    let user;
+    let user, summaryData = null;
 
     async function init() {
       user = requireAuth('admin');
@@ -98,6 +101,7 @@
       try {
         const r = await apiGet({ action: 'getSummary' });
         if (!r.success) { alert('โหลดข้อมูลไม่สำเร็จ'); return; }
+        summaryData = r;
 
         document.getElementById('sTotal').textContent = r.total;
         document.getElementById('sDone').textContent = r.done;
@@ -189,6 +193,36 @@
             <tbody>${rows}</tbody>
           </table>
         </div>`;
+    }
+
+    function exportSummary() {
+      if (!summaryData) { alert('ยังไม่มีข้อมูล กรุณารอโหลดก่อน'); return; }
+      const rows = [];
+      // ภาพรวม
+      rows.push(['=== ภาพรวม ===']);
+      rows.push(['งานทั้งหมด', summaryData.total]);
+      rows.push(['เสร็จแล้ว', summaryData.done]);
+      rows.push(['ค้างอยู่', summaryData.pending]);
+      rows.push(['ใกล้ Deadline', summaryData.nearDeadline]);
+      const pct = summaryData.total > 0 ? Math.round(summaryData.done / summaryData.total * 100) : 0;
+      rows.push(['ความคืบหน้ารวม', pct + '%']);
+      rows.push([]);
+      // รายคน
+      rows.push(['=== สถิติรายคน ===']);
+      rows.push(['ชื่อ','รวม','เสร็จ','ค้าง','%']);
+      Object.entries(summaryData.byPerson).sort((a,b)=>b[1].total-a[1].total).forEach(([name,s]) => {
+        const p = s.total > 0 ? Math.round(s.done/s.total*100) : 0;
+        rows.push([name, s.total, s.done, s.pending, p+'%']);
+      });
+      rows.push([]);
+      // ตามประเภท
+      rows.push(['=== สถิติตามประเภทงาน ===']);
+      rows.push(['ประเภท','รวม','เสร็จ','ค้าง','%']);
+      Object.entries(summaryData.byType).sort((a,b)=>b[1].total-a[1].total).forEach(([type,s]) => {
+        const p = s.total > 0 ? Math.round(s.done/s.total*100) : 0;
+        rows.push([type, s.total, s.done, s.pending, p+'%']);
+      });
+      exportCSV(rows, todayFilename('สรุปผล'));
     }
 
     function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
