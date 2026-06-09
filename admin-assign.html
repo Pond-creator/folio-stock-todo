@@ -331,6 +331,7 @@
         document.getElementById('aTimeSlot').value = '';
         document.querySelectorAll('#assigneeGrid input').forEach(i => { i.checked = false; i.closest('.checkbox-item').classList.remove('checked'); });
         document.getElementById('assignError').style.display = 'none';
+        closeConfirm();
         await loadRecentTasks();
         showSuccess('assignError', '✅ มอบหมายงานสำเร็จ');
       } catch (e) {
