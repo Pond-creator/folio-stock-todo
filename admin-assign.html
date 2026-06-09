@@ -224,6 +224,7 @@
           <tr>
             <td><div style="font-weight:500;font-size:13px">${escHtml(t.task)}</div></td>
             <td>${badgePriority(t.priority)}</td>
+            <td style="font-size:13px;white-space:nowrap;color:#374151">${t.startDate || '-'}</td>
             <td>
               <div style="display:flex;flex-wrap:wrap;gap:3px">
                 ${t.assignTo.split(',').map(p=>p.trim()).filter(Boolean)
@@ -236,7 +237,7 @@
         document.getElementById('recentContainer').innerHTML = `
           <div class="table-wrap">
             <table>
-              <thead><tr><th>ภารกิจ</th><th>ความสำคัญ</th><th>Assign</th><th>สถานะ</th></tr></thead>
+              <thead><tr><th>ภารกิจ</th><th>ความสำคัญ</th><th>เริ่มงาน</th><th>Assign</th><th>สถานะ</th></tr></thead>
               <tbody>${rows}</tbody>
             </table>
           </div>`;
