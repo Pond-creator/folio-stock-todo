@@ -89,17 +89,6 @@
     }
     .filter-active-pill button:hover { color: #1E40AF; }
 
-    /* Section header */
-    .section-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 20px; background: #F8FAFC; border-bottom: 1px solid #E2E8F0;
-    }
-    .section-title { font-size: 14px; font-weight: 700; color: #374151; display: flex; align-items: center; gap: 6px; }
-    .section-count { background: #E2E8F0; color: #374151; padding: 2px 8px; border-radius: 99px; font-size: 12px; font-weight: 600; }
-    .section-today .section-header { background: #EFF6FF; border-bottom-color: #BFDBFE; }
-    .section-today .section-title { color: #1E40AF; }
-    .section-overdue .section-header { background: #FFF7ED; border-bottom-color: #FED7AA; }
-    .section-overdue .section-title { color: #92400E; }
   </style>
 </head>
 <body>
@@ -199,7 +188,7 @@
             <option value="">ทุกระดับ</option>
             <option>ด่วนมาก</option>
             <option>ไม่เร่งด่วนแต่สำคัญ</option>
-            <option>ไม่่สำคัญแต่เร่งด่วน</option>
+            <option>ไม่สำคัญแต่เร่งด่วน</option>
             <option>รอได้ไม่สำคัญ</option>
           </select>
         </div>
@@ -244,7 +233,7 @@
   <script>
     let user, allTasks = [], activeCard = 'all', activeDateFilter = 'all', editRowIndex = null;
 
-    const PRIO = { 'ด่วนมาก':1,'ไม่เร่งด่วนแต่สำคัญ':2,'ไม่่สำคัญแต่เร่งด่วน':3,'ไม่สำคัญแต่เร่งด่วน':3,'รอได้ไม่สำคัญ':4 };
+    const PRIO = { 'ด่วนมาก':1,'ไม่เร่งด่วนแต่สำคัญ':2,'ไม่สำคัญแต่เร่งด่วน':3,'รอได้ไม่สำคัญ':4 };
     const IN_PROGRESS = ['กำลังวางแผน','ลงมือทำ','ติดตามผล'];
     const CARD_LABEL = { all:'ทั้งหมด', notstarted:'ยังไม่เริ่ม', inprogress:'กำลังดำเนินการ', done:'เสร็จแล้ว', near:'ใกล้ Deadline' };
     const DATE_LABEL = { all:'ทุกวัน', today:'วันนี้', yesterday:'เมื่อวาน', week:'7 วัน', month:'เดือนนี้', custom:'ช่วงที่เลือก' };
@@ -259,16 +248,13 @@
     async function loadAll() {
       showLoading('taskContainer');
       try {
-        const [tr, sr] = await Promise.all([
-          apiGet({ action: 'getTasks', role: 'admin' }),
-          apiGet({ action: 'getSummary' })
-        ]);
+        const tr = await apiGet({ action: 'getTasks', role: 'admin' });
         if (tr.success) {
           allTasks = tr.tasks;
           buildFilters();
+          updateStats();  // คำนวณจาก allTasks เลย ไม่ต้องเรียก getSummary แยก
           applyFilter();
         }
-        if (sr.success) updateStats(sr);
       } catch (e) { showError('taskContainer', e.message); }
     }
 
@@ -284,16 +270,20 @@
       await loadAll();
     }
 
-    function updateStats(s) {
+    // คำนวณ stats ทั้งหมดจาก allTasks โดยตรง — แหล่งข้อมูลเดียว ไม่มีสลับ
+    function updateStats() {
+      const total      = allTasks.length;
       const notStarted = allTasks.filter(t => !t.status || t.status === 'ยังไม่เริ่ม').length;
       const inProgress = allTasks.filter(t => IN_PROGRESS.includes(t.status)).length;
-      document.getElementById('sTotal').textContent      = s.total;
+      const done       = allTasks.filter(t => t.status === 'เสร็จเรียบร้อย').length;
+      const near       = allTasks.filter(t => t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย');
+
+      document.getElementById('sTotal').textContent      = total;
       document.getElementById('sNotStarted').textContent = notStarted;
       document.getElementById('sPending').textContent    = inProgress;
-      document.getElementById('sDone').textContent       = s.done;
-      document.getElementById('sNear').textContent       = s.nearDeadline;
+      document.getElementById('sDone').textContent       = done;
+      document.getElementById('sNear').textContent       = near.length;
 
-      const near = allTasks.filter(t => t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย');
       document.getElementById('nearAlert').innerHTML = near.length
         ? `<div class="alert alert-danger" style="margin-bottom:16px">🔔 งานใกล้ Deadline: ${near.map(t=>`<strong>${escHtml(t.task)}</strong>`).join(', ')}</div>`
         : '';
@@ -494,48 +484,6 @@
       setDateBtnActive('dbAll');
       document.getElementById('customRange').style.display = 'none';
       applyFilter();
-    }
-
-    function renderTodayView(tasks) {
-      const todayStr = fmtDateThai(new Date());
-      const notDone = tasks.filter(t => t.status !== 'เสร็จเรียบร้อย');
-
-      const todayTasks = notDone
-        .filter(t => t.deadline === todayStr)
-        .sort((a,b) => (PRIO[a.priority]||9) - (PRIO[b.priority]||9));
-
-      const todayDate = new Date(); todayDate.setHours(0,0,0,0);
-      const prevTasks = notDone
-        .filter(t => {
-          if (t.deadline === todayStr) return false;
-          if (!t.deadline) return true;
-          const d = parseDateThai(t.deadline);
-          return d && d < todayDate;
-        })
-        .sort((a,b) => {
-          const da = parseDateThai(a.deadline) || new Date(0);
-          const db = parseDateThai(b.deadline) || new Date(0);
-          return db - da;
-        });
-
-      let html = '';
-      html += `<div class="section-today">
-        <div class="section-header">
-          <span class="section-title">🔥 งานที่ต้องทำวันนี้ <span class="section-count">${todayTasks.length}</span></span>
-          <span style="font-size:12px;color:#64748B">เรียงตามความสำคัญ</span>
-        </div>
-        ${todayTasks.length ? taskTable(todayTasks) : '<div class="empty-state" style="padding:24px"><span class="icon" style="font-size:32px">✅</span><p>ไม่มีงานวันนี้</p></div>'}
-      </div>`;
-
-      html += `<div class="section-overdue">
-        <div class="section-header">
-          <span class="section-title">📂 งานค้างจากวันก่อน <span class="section-count">${prevTasks.length}</span></span>
-          <span style="font-size:12px;color:#64748B">เรียงวันล่าสุดก่อน</span>
-        </div>
-        ${prevTasks.length ? taskTable(prevTasks) : '<div class="empty-state" style="padding:24px"><span class="icon" style="font-size:32px">🎉</span><p>ไม่มีงานค้าง</p></div>'}
-      </div>`;
-
-      document.getElementById('taskContainer').innerHTML = html;
     }
 
     function renderFlatList(tasks) {

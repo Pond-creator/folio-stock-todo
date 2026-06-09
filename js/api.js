@@ -28,7 +28,6 @@ async function apiPost(data) {
 const PRIORITY_CLASS = {
   'ด่วนมาก': 'badge-urgent',
   'ไม่เร่งด่วนแต่สำคัญ': 'badge-important',
-  'ไม่่สำคัญแต่เร่งด่วน': 'badge-rush',
   'ไม่สำคัญแต่เร่งด่วน': 'badge-rush',
   'รอได้ไม่สำคัญ': 'badge-low'
 };

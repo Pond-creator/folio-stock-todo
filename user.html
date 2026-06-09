@@ -288,7 +288,7 @@
     }
 
     function taskCard(t) {
-      const pMap = { 'ด่วนมาก':'urgent','ไม่เร่งด่วนแต่สำคัญ':'important','ไม่่สำคัญแต่เร่งด่วน':'rush','ไม่สำคัญแต่เร่งด่วน':'rush' };
+      const pMap = { 'ด่วนมาก':'urgent','ไม่เร่งด่วนแต่สำคัญ':'important','ไม่สำคัญแต่เร่งด่วน':'rush','รอได้ไม่สำคัญ':'low' };
       const cardClass = pMap[t.priority] || '';
       const nearClass = t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย' ? ' near-dl' : '';
       const pct = parseInt(t.percent) || 0;
