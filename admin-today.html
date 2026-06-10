@@ -83,6 +83,10 @@
       font-family: Sarabun,sans-serif; font-size: 13px; color: #374151;
     }
 
+    /* Done row highlight */
+    .done-row { background: #F0FDF4 !important; }
+    .done-row td { opacity: 0.75; }
+
     /* Admin order select */
     .order-select {
       width: 60px; padding: 4px 2px; border: 1.5px solid #E2E8F0;
@@ -578,9 +582,10 @@
       const maxOrder = allTasks.length;
 
       const rows = tasks.map(t => {
-        const orderSelect = isAdmin ? buildOrderSelect(t, usedOrders, maxOrder) : '';
+        const isDone = t.status === 'เสร็จเรียบร้อย';
+        const orderSelect = (isAdmin && !isDone) ? buildOrderSelect(t, usedOrders, maxOrder) : '';
         return `
-        <tr class="${t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย' ? 'near-deadline-row' : ''}">
+        <tr class="${isDone ? 'done-row' : (t.isNearDeadline ? 'near-deadline-row' : '')}">
           <td style="color:#94A3B8;font-size:13px;text-align:center;width:36px">${t.seq}</td>
           <td>
             <div class="task-name">${escHtml(t.task)}</div>
@@ -602,7 +607,7 @@
           <td>${badgeStatus(t.status)}${t.lateFinish ? ' <span style="background:#FEF3C7;color:#92400E;font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px">⚠️ เสร็จช้า</span>' : ''}</td>
           <td style="min-width:100px">${progressBar(t.percent)}</td>
           <td style="white-space:nowrap">
-            <button class="btn btn-outline btn-sm" onclick="openUpdate(${t.rowIndex})">อัปเดต</button>
+            ${isDone ? '' : `<button class="btn btn-outline btn-sm" onclick="openUpdate(${t.rowIndex})">อัปเดต</button>`}
             ${orderSelect}
           </td>
         </tr>`;
