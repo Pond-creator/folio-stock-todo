@@ -609,6 +609,7 @@
           <td style="white-space:nowrap">
             ${isDone ? '' : `<button class="btn btn-outline btn-sm" onclick="openUpdate(${t.rowIndex})">อัปเดต</button>`}
             ${orderSelect}
+            ${isAdmin ? `<button class="btn btn-sm" style="color:#EF4444;border:1.5px solid #FCA5A5;background:white;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:4px" onclick="confirmDeleteTask(${t.rowIndex},'${escHtml(t.task)}')">ลบ</button>` : ''}
           </td>
         </tr>`;
       }).join('');
@@ -702,6 +703,16 @@
         alert('รีเซ็ตไม่สำเร็จ: ' + e.message);
       } finally {
         btn.disabled = false; btn.innerHTML = '🔄 รีเซ็ตลำดับ';
+      }
+    }
+
+    async function confirmDeleteTask(rowIndex, taskName) {
+      if (!confirm(`ลบงาน "${taskName}" ออกจากระบบและ Google Sheet ใช่ไหม?\n⚠️ ไม่สามารถกู้คืนได้`)) return;
+      try {
+        await apiPost({ action: 'deleteTask', rowIndex });
+        await loadAll();
+      } catch(e) {
+        alert('ลบไม่สำเร็จ: ' + e.message);
       }
     }
 
