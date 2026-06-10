@@ -599,7 +599,7 @@
             ${daysLeftHtml(t.daysLeft)}
           </td>
           <td><span style="font-size:13px">${t.timeSlot||'-'}</span></td>
-          <td>${badgeStatus(t.status)}</td>
+          <td>${badgeStatus(t.status)}${t.lateFinish ? ' <span style="background:#FEF3C7;color:#92400E;font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px">⚠️ เสร็จช้า</span>' : ''}</td>
           <td style="min-width:100px">${progressBar(t.percent)}</td>
           <td style="white-space:nowrap">
             <button class="btn btn-outline btn-sm" onclick="openUpdate(${t.rowIndex})">อัปเดต</button>
