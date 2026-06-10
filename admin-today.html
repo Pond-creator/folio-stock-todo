@@ -450,7 +450,7 @@
           if (activeCard === 'inprogress') return IN_PROGRESS.includes(t.status);
           if (activeCard === 'done')       return t.status === 'เสร็จเรียบร้อย';
           if (activeCard === 'near')       return t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย';
-          if (activeCard === 'overdue')    return t.daysLeft !== null && t.daysLeft < 0;
+          if (activeCard === 'overdue')    return t.daysLeft !== null && t.daysLeft < 0 && t.status !== 'เสร็จเรียบร้อย';
           return true;
         });
       }
