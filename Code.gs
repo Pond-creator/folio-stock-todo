@@ -25,6 +25,7 @@ function doGet(e) {
       case 'getBase':  return respond(getBase());
       case 'getUsers':        return respond(getUsers());
       case 'getUserPassword': return respond(getUserPassword(p));
+      case 'getAuditLog': return respond(getAuditLog(p));
       default:         return respond({ error: 'Unknown action' });
     }
   } catch (err) {
@@ -38,6 +39,7 @@ function doPost(e) {
     switch (data.action) {
       case 'addTask':        return respond(addTask(data));
       case 'updateTask':     return respond(updateTask(data));
+      case 'editTask':    return respond(editTaskAction(data));
       case 'deleteTask':     return respond(deleteTask(data));
       case 'updateAdminOrder': return respond(updateAdminOrder(data));
       case 'resetAllOrders':   return respond(resetAllOrders());
@@ -75,7 +77,6 @@ function handleLogin(username, password) {
 
 // ===== TASKS =====
 function cleanExpiredOrders(sheet, rows) {
-  // ลบค่าเก่าในคอลัมน์ H ที่วันที่ไม่ตรงกับวันนี้ออกจากชีทอัตโนมัติ
   const todayStr = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd');
   for (let i = 1; i < rows.length; i++) {
     const raw = String(rows[i][7] || '').trim();
@@ -88,7 +89,7 @@ function cleanExpiredOrders(sheet, rows) {
 function getTasks(username, role) {
   const sheet = getSheet('to do list');
   const rows = sheet.getDataRange().getValues();
-  cleanExpiredOrders(sheet, rows); // ล้างลำดับเก่าออกอัตโนมัติเมื่อวันเปลี่ยน
+  cleanExpiredOrders(sheet, rows);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tasks = [];
 
@@ -103,13 +104,13 @@ function getTasks(username, role) {
     }
 
     let daysLeft = null, isNearDeadline = false;
-    if (r[6]) {
+    const isDoneTask = r[11] === 'เสร็จเรียบร้อย' || r[12] === '100%';
+    if (r[6] && !isDoneTask) {
       const dl = new Date(r[6]); dl.setHours(0, 0, 0, 0);
       daysLeft = Math.ceil((dl - today) / 86400000);
-      isNearDeadline = daysLeft <= 3 && daysLeft >= 0;
+      isNearDeadline = daysLeft <= 3;
     }
 
-    // adminOrder เก็บแบบ "yyyy-MM-dd:N" — ถ้าไม่ใช่วันนี้ถือว่าหมดอายุ
     let adminOrder = null;
     const rawOrder = String(r[7] || '').trim();
     if (rawOrder && rawOrder.includes(':')) {
@@ -135,7 +136,13 @@ function getTasks(username, role) {
       status:     r[11],
       percent:    fmtPercent(r[12]),
       addedBy:    r[13] || '',
-      isNearDeadline: isNearDeadline
+      isNearDeadline: isNearDeadline,
+      lateFinish: (function() {
+        if (!isDoneTask || !r[6] || !r[10]) return false;
+        const dl = new Date(r[6]); dl.setHours(0,0,0,0);
+        const done = new Date(r[10]); done.setHours(0,0,0,0);
+        return done > dl;
+      })()
     });
   }
   return { success: true, tasks };
@@ -143,7 +150,7 @@ function getTasks(username, role) {
 
 function addTask(d) {
   const sheet = getSheet('to do list');
-  const seq = sheet.getLastRow(); // row 1 = header, so lastRow = count
+  const seq = sheet.getLastRow();
   sheet.appendRow([
     seq, d.dateAdded, d.task, d.type, d.priority,
     d.assignTo, d.deadline, '', d.startDate || d.dateAdded,
@@ -198,7 +205,7 @@ function getSummary() {
   const rows = sheet.getDataRange().getValues();
   const today = new Date(); today.setHours(0, 0, 0, 0);
 
-  let total = 0, done = 0, pending = 0, nearDeadline = 0;
+  let total = 0, done = 0, pending = 0, nearDeadline = 0, overdue = 0;
   const byPerson = {}, byType = {};
 
   for (let i = 1; i < rows.length; i++) {
@@ -210,7 +217,9 @@ function getSummary() {
 
     if (!isDone && r[6]) {
       const dl = new Date(r[6]); dl.setHours(0, 0, 0, 0);
-      if (Math.ceil((dl - today) / 86400000) <= 3) nearDeadline++;
+      const daysLeft = Math.ceil((dl - today) / 86400000);
+      if (daysLeft <= 3) nearDeadline++;
+      if (daysLeft < 0) overdue++;
     }
 
     String(r[5] || '').split(',').map(s => s.trim()).filter(Boolean).forEach(p => {
@@ -224,7 +233,7 @@ function getSummary() {
     byType[t].total++;
     isDone ? byType[t].done++ : byType[t].pending++;
   }
-  return { success: true, total, done, pending, nearDeadline, byPerson, byType };
+  return { success: true, total, done, pending, nearDeadline, overdue, byPerson, byType };
 }
 
 // ===== BASE =====
@@ -286,7 +295,6 @@ function getUsers() {
 
 function addUser(d) {
   const sheet = getSheet('users');
-  // ตรวจสอบ username ซ้ำ
   const rows = sheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][0]).trim().toLowerCase() === String(d.username).trim().toLowerCase()) {
@@ -361,4 +369,82 @@ function fmtDate(v) {
     const d = new Date(v);
     return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
   } catch { return String(v); }
+}
+
+// ===== EDIT TASK + AUDIT LOG =====
+function getOrCreateAuditSheet() {
+  let sh = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('audit_log');
+  if (!sh) {
+    sh = SpreadsheetApp.openById(SPREADSHEET_ID).insertSheet('audit_log');
+    sh.appendRow(['วันเวลา', 'ผู้แก้ไข', 'rowIndex', 'งาน', 'Field', 'ค่าเก่า', 'ค่าใหม่']);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function editTaskAction(d) {
+  try {
+    const sheet = getSheet('to do list');
+    const ri = parseInt(d.rowIndex);
+    const r = sheet.getRange(ri, 1, 1, 14).getValues()[0];
+
+    const fieldMap = [
+      { key:'task',      col:3,  label:'ชื่องาน',       rIdx:2  },
+      { key:'type',      col:4,  label:'ประเภทงาน',     rIdx:3  },
+      { key:'priority',  col:5,  label:'ความสำคัญ',     rIdx:4  },
+      { key:'assignTo',  col:6,  label:'Assign To',      rIdx:5  },
+      { key:'deadline',  col:7,  label:'Deadline',       rIdx:6  },
+      { key:'startDate', col:9,  label:'วันเริ่มงาน',   rIdx:8  },
+      { key:'timeSlot',  col:10, label:'ช่วงเวลา',      rIdx:9  },
+      { key:'doneDate',  col:11, label:'วันเสร็จ',      rIdx:10 },
+      { key:'status',    col:12, label:'สถานะ',          rIdx:11 },
+      { key:'percent',   col:13, label:'ความคืบหน้า',   rIdx:12 },
+    ];
+
+    const changes = [];
+    const taskName = d.task || String(r[2] || '');
+
+    fieldMap.forEach(({ key, col, label, rIdx }) => {
+      if (d[key] === undefined) return;
+      const oldVal = String(r[rIdx] !== null && r[rIdx] !== undefined ? r[rIdx] : '');
+      const newVal = String(d[key] !== null && d[key] !== undefined ? d[key] : '');
+      if (oldVal === newVal) return;
+      let storeVal = d[key];
+      if ((key === 'deadline' || key === 'startDate') && storeVal) {
+        const p = String(storeVal).split('-');
+        if (p.length === 3) storeVal = new Date(Number(p[0]), Number(p[1])-1, Number(p[2]));
+      }
+      sheet.getRange(ri, col).setValue(storeVal !== undefined ? storeVal : '');
+      changes.push({ field: label, oldVal, newVal: d[key] });
+    });
+
+    if (changes.length > 0) {
+      const auditSheet = getOrCreateAuditSheet();
+      const nowStr = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'dd/MM/yyyy HH:mm');
+      changes.forEach(c => {
+        auditSheet.appendRow([nowStr, d.editor || '', ri, taskName, c.field, c.oldVal, String(c.newVal)]);
+      });
+    }
+
+    return { success: true, changes: changes.length };
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
+}
+
+function getAuditLog(d) {
+  try {
+    const sh = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('audit_log');
+    if (!sh) return { success: true, logs: [] };
+    const rows = sh.getDataRange().getValues();
+    if (rows.length <= 1) return { success: true, logs: [] };
+    let logs = rows.slice(1).map(r => ({
+      datetime: r[0], editor: r[1], rowIndex: r[2],
+      taskName: r[3], field: r[4], oldVal: r[5], newVal: r[6]
+    }));
+    if (d && d.rowIndex) logs = logs.filter(l => String(l.rowIndex) === String(d.rowIndex));
+    return { success: true, logs: logs.slice(-200).reverse() };
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
 }
