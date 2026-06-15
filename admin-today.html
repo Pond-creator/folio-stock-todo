@@ -97,6 +97,72 @@
     .order-select.has-value { border-color: #2563EB; background: #EFF6FF; color: #1E40AF; font-weight: 700; }
     .order-select:focus { outline: none; border-color: #2563EB; }
 
+    /* ===== MARQUEE ALERT ===== */
+    .marquee-wrap {
+      overflow: hidden;
+      background: #FFF1F2;
+      border: 1px solid #FECDD3;
+      border-radius: 10px;
+      padding: 10px 0;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+    }
+    .marquee-label {
+      flex-shrink: 0;
+      padding: 0 14px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #BE123C;
+      border-right: 2px solid #FECDD3;
+      margin-right: 0;
+      white-space: nowrap;
+    }
+    .marquee-track {
+      display: flex;
+      width: 100%;
+      overflow: hidden;
+      position: relative;
+    }
+    .marquee-inner {
+      display: flex;
+      gap: 0;
+      white-space: nowrap;
+      animation: marquee-scroll 28s linear infinite;
+      will-change: transform;
+    }
+    .marquee-inner:hover { animation-play-state: paused; }
+    @keyframes marquee-scroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .marquee-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 28px;
+      font-size: 13px;
+      color: #881337;
+      font-weight: 600;
+    }
+    .marquee-item .m-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 99px;
+      white-space: nowrap;
+    }
+    .marquee-item .m-overdue { background: #FFE4E6; color: #BE123C; }
+    .marquee-item .m-near    { background: #FEF3C7; color: #92400E; }
+    .marquee-sep {
+      display: inline-flex;
+      align-items: center;
+      color: #FECDD3;
+      padding: 0 4px;
+      font-size: 18px;
+      line-height: 1;
+    }
+
     /* active filter pill */
     .filter-active-pill {
       display: inline-flex; align-items: center; gap: 6px;
@@ -321,11 +387,22 @@
       document.getElementById('sNear').textContent       = near.length;
       document.getElementById('sOverdue').textContent    = overdue.length;
 
-      const alertItems = [...overdue.map(t=>`<strong>🔴 ${escHtml(t.task)}</strong> (เกิน ${Math.abs(t.daysLeft)} วัน)`),
-                          ...near.map(t=>`<strong>${escHtml(t.task)}</strong>`)];
-      document.getElementById('nearAlert').innerHTML = alertItems.length
-        ? `<div class="alert alert-danger" style="margin-bottom:16px">🔔 ${alertItems.join(', ')}</div>`
-        : '';
+      const alertItems = [
+        ...overdue.map(t => `<span class="marquee-item"><span class="m-badge m-overdue">🔴 เกิน ${Math.abs(t.daysLeft)} วัน</span>${escHtml(t.task)}</span><span class="marquee-sep">·</span>`),
+        ...near.map(t   => `<span class="marquee-item"><span class="m-badge m-near">⚠️ ใกล้ Deadline</span>${escHtml(t.task)}</span><span class="marquee-sep">·</span>`)
+      ];
+      if (alertItems.length) {
+        const inner = alertItems.join('');
+        document.getElementById('nearAlert').innerHTML = `
+          <div class="marquee-wrap">
+            <div class="marquee-label">🔔 แจ้งเตือน</div>
+            <div class="marquee-track">
+              <div class="marquee-inner">${inner}${inner}</div>
+            </div>
+          </div>`;
+      } else {
+        document.getElementById('nearAlert').innerHTML = '';
+      }
     }
 
     function buildFilters() {
