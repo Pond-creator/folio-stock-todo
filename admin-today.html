@@ -128,7 +128,7 @@
       display: flex;
       gap: 0;
       white-space: nowrap;
-      animation: marquee-scroll 28s linear infinite;
+      animation: marquee-scroll 90s linear infinite;
       will-change: transform;
     }
     .marquee-inner:hover { animation-play-state: paused; }
@@ -141,7 +141,7 @@
       align-items: center;
       gap: 6px;
       padding: 0 28px;
-      font-size: 13px;
+      font-size: 15px;
       color: #881337;
       font-weight: 600;
     }
@@ -330,6 +330,8 @@
   <script src="js/api.js?v=2"></script>
   <script>
     let user, allTasks = [], filteredTasks = [], activeCard = 'all', activeDateFilter = 'all', editRowIndex = null;
+    const PAGE_SIZE = 30;
+    let currentPage = 1;
 
     const PRIO = { 'ด่วนมาก':1,'ไม่เร่งด่วนแต่สำคัญ':2,'ไม่สำคัญแต่เร่งด่วน':3,'รอได้ไม่สำคัญ':4 };
     const IN_PROGRESS = ['กำลังวางแผน','ลงมือทำ','ติดตามผล'];
@@ -580,6 +582,7 @@
       });
 
       filteredTasks = base;
+      currentPage = 1;
       renderFlatList(base);
     }
 
@@ -649,7 +652,56 @@
           '<div class="empty-state"><span class="icon">📋</span><p>ไม่มีงานที่ตรงเงื่อนไข</p></div>';
         return;
       }
-      document.getElementById('taskContainer').innerHTML = taskTable(tasks);
+      const totalPages = Math.ceil(tasks.length / PAGE_SIZE);
+      if (currentPage > totalPages) currentPage = totalPages;
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const pageItems = tasks.slice(start, start + PAGE_SIZE);
+      document.getElementById('taskContainer').innerHTML =
+        taskTable(pageItems) + renderPagination(tasks.length, totalPages);
+    }
+
+    function renderPagination(total, totalPages) {
+      if (totalPages <= 1) return '';
+      const from = (currentPage - 1) * PAGE_SIZE + 1;
+      const to = Math.min(currentPage * PAGE_SIZE, total);
+
+      let pages = '';
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+          pages += `<button onclick="goPage(${i})" style="
+            padding:6px 12px; border-radius:8px; border:1.5px solid ${i===currentPage?'#2563EB':'#E2E8F0'};
+            background:${i===currentPage?'#2563EB':'white'}; color:${i===currentPage?'white':'#374151'};
+            font-family:Sarabun,sans-serif; font-size:13px; font-weight:600; cursor:pointer; min-width:36px;
+          ">${i}</button>`;
+        } else if (i === currentPage - 3 || i === currentPage + 3) {
+          pages += `<span style="color:#94A3B8;padding:0 4px">…</span>`;
+        }
+      }
+
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid #F1F5F9;flex-wrap:wrap;gap:8px">
+        <span style="font-size:13px;color:#64748B">แสดง ${from}–${to} จากทั้งหมด ${total} งาน</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''} style="
+            padding:6px 12px; border-radius:8px; border:1.5px solid #E2E8F0;
+            background:white; color:${currentPage===1?'#CBD5E1':'#374151'};
+            font-family:Sarabun,sans-serif; font-size:13px; cursor:${currentPage===1?'default':'pointer'};
+          ">‹ ก่อนหน้า</button>
+          ${pages}
+          <button onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''} style="
+            padding:6px 12px; border-radius:8px; border:1.5px solid #E2E8F0;
+            background:white; color:${currentPage===totalPages?'#CBD5E1':'#374151'};
+            font-family:Sarabun,sans-serif; font-size:13px; cursor:${currentPage===totalPages?'default':'pointer'};
+          ">ถัดไป ›</button>
+        </div>
+      </div>`;
+    }
+
+    function goPage(p) {
+      const totalPages = Math.ceil(filteredTasks.length / PAGE_SIZE);
+      if (p < 1 || p > totalPages) return;
+      currentPage = p;
+      renderFlatList(filteredTasks);
+      document.getElementById('taskContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function taskTable(tasks) {
