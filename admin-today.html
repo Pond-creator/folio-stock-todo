@@ -726,7 +726,7 @@
       const isAdmin = user && user.role === 'admin';
       // รวบรวมหมายเลขที่ถูกใช้แล้ว
       const usedOrders = new Set(allTasks.map(t => t.adminOrder).filter(n => n !== null));
-      const maxOrder = allTasks.length;
+      const maxOrder = 10;
 
       const rows = tasks.map(t => {
         const isDone = t.status === 'เสร็จเรียบร้อย';
