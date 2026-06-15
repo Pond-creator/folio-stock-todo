@@ -8,6 +8,31 @@
   <style>
     select:invalid, select option[value=""] { color: #9CA3AF; }
     select option:not([value=""]) { color: #0F172A; }
+
+    /* ===== MULTI-SELECT DROPDOWN ===== */
+    .ms-wrap { position: relative; }
+    .ms-btn {
+      width: 100%; padding: 8px 12px; border: 1.5px solid #E2E8F0;
+      border-radius: 8px; background: white; text-align: left;
+      font-family: Sarabun, sans-serif; font-size: 14px; color: #0F172A;
+      cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+    }
+    .ms-btn:focus { outline: none; border-color: #2563EB; }
+    .ms-btn.placeholder { color: #9CA3AF; }
+    .ms-dropdown {
+      display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: white; border: 1.5px solid #E2E8F0; border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.12); z-index: 100; max-height: 220px; overflow-y: auto;
+    }
+    .ms-dropdown.open { display: block; }
+    .ms-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 14px; cursor: pointer; font-size: 14px; color: #0F172A;
+      transition: background .1s;
+    }
+    .ms-item:hover { background: #F1F5F9; }
+    .ms-item input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; accent-color: #2563EB; }
+    .ms-item.selected { background: #EFF6FF; color: #1E40AF; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -36,7 +61,12 @@
             <div class="form-row">
               <div class="form-group">
                 <label>ประเภทงาน <span style="color:red">*</span></label>
-                <select id="aType"></select>
+                <div class="ms-wrap" id="wrap-aType">
+                  <button type="button" class="ms-btn placeholder" id="btn-aType" onclick="toggleMs('aType')">
+                    <span id="label-aType">-- เลือก --</span><span>▾</span>
+                  </button>
+                  <div class="ms-dropdown" id="dd-aType"></div>
+                </div>
               </div>
               <div class="form-group">
                 <label>ความสำคัญ <span style="color:red">*</span></label>
@@ -56,7 +86,12 @@
             <div class="form-row">
               <div class="form-group">
                 <label>ช่วงเวลาดำเนินงาน <span style="color:red">*</span></label>
-                <select id="aTimeSlot"></select>
+                <div class="ms-wrap" id="wrap-aTimeSlot">
+                  <button type="button" class="ms-btn placeholder" id="btn-aTimeSlot" onclick="toggleMs('aTimeSlot')">
+                    <span id="label-aTimeSlot">-- เลือก --</span><span>▾</span>
+                  </button>
+                  <div class="ms-dropdown" id="dd-aTimeSlot"></div>
+                </div>
               </div>
             </div>
             <div class="form-group">
@@ -160,9 +195,9 @@
     function applyBase(base) {
       baseData = base;
       allAssignees = base.assignees;
-      fillSelect('aType', base.taskTypes);
+      fillMs('aType', base.taskTypes);
       fillSelect('aPriority', base.priorities);
-      fillSelect('aTimeSlot', base.timeSlots);
+      fillMs('aTimeSlot', base.timeSlots);
       renderAssigneeGrid(base.assignees);
     }
 
@@ -172,6 +207,64 @@
         `<option value="" disabled selected style="color:#9CA3AF">-- เลือก --</option>` +
         arr.map(v => `<option>${escHtml(v)}</option>`).join('');
     }
+
+    // ===== MULTI-SELECT HELPERS =====
+    function fillMs(id, arr) {
+      const dd = document.getElementById('dd-' + id);
+      if (!dd) return;
+      dd.innerHTML = arr.map(v => `
+        <label class="ms-item" onclick="toggleMsItem(this,'${id}')">
+          <input type="checkbox" value="${escHtml(v)}" onclick="event.stopPropagation()">
+          <span>${escHtml(v)}</span>
+        </label>`).join('');
+    }
+
+    function toggleMs(id) {
+      const dd = document.getElementById('dd-' + id);
+      const isOpen = dd.classList.contains('open');
+      // ปิด dropdown อื่นทั้งหมดก่อน
+      document.querySelectorAll('.ms-dropdown.open').forEach(d => d.classList.remove('open'));
+      if (!isOpen) dd.classList.add('open');
+    }
+
+    function toggleMsItem(label, id) {
+      const cb = label.querySelector('input');
+      cb.checked = !cb.checked;
+      label.classList.toggle('selected', cb.checked);
+      updateMsLabel(id);
+    }
+
+    function updateMsLabel(id) {
+      const checked = getMsValues(id);
+      const btn = document.getElementById('btn-' + id);
+      const lbl = document.getElementById('label-' + id);
+      if (checked.length === 0) {
+        lbl.textContent = '-- เลือก --';
+        btn.classList.add('placeholder');
+      } else {
+        lbl.textContent = checked.join(', ');
+        btn.classList.remove('placeholder');
+      }
+    }
+
+    function getMsValues(id) {
+      return [...document.querySelectorAll(`#dd-${id} input:checked`)].map(i => i.value);
+    }
+
+    function clearMs(id) {
+      document.querySelectorAll(`#dd-${id} input`).forEach(i => {
+        i.checked = false;
+        i.closest('.ms-item').classList.remove('selected');
+      });
+      updateMsLabel(id);
+    }
+
+    // ปิด dropdown เมื่อคลิกข้างนอก
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.ms-wrap')) {
+        document.querySelectorAll('.ms-dropdown.open').forEach(d => d.classList.remove('open'));
+      }
+    });
 
     function renderAssigneeGrid(assignees) {
       document.getElementById('assigneeGrid').innerHTML = assignees.map(a => `
@@ -247,28 +340,27 @@
 
     function confirmTask() {
       const task      = document.getElementById('aTask').value.trim();
-      const type      = document.getElementById('aType').value;
+      const types     = getMsValues('aType');
       const priority  = document.getElementById('aPriority').value;
       const startDate = document.getElementById('aStartDate').value;
       const deadline  = document.getElementById('aDeadline').value;
-      const timeSlot  = document.getElementById('aTimeSlot').value;
+      const timeSlots = getMsValues('aTimeSlot');
       const checked   = [...document.querySelectorAll('#assigneeGrid input:checked')].map(i => i.value);
 
-      if (!task)          { showErr('assignError', '❌ กรุณากรอกภารกิจ / งาน'); return; }
-      if (!type)          { showErr('assignError', '❌ กรุณาเลือกประเภทงาน'); return; }
-      if (!priority)      { showErr('assignError', '❌ กรุณาเลือกความสำคัญ'); return; }
-      if (!startDate)     { showErr('assignError', '❌ กรุณาเลือกวันที่เริ่มทำ'); return; }
-      if (!deadline)      { showErr('assignError', '❌ กรุณาเลือกวันที่ Deadline'); return; }
-      if (!timeSlot)      { showErr('assignError', '❌ กรุณาเลือกช่วงเวลาดำเนินงาน'); return; }
-      if (!checked.length){ showErr('assignError', '❌ กรุณาเลือกผู้รับงานอย่างน้อย 1 คน'); return; }
+      if (!task)            { showErr('assignError', '❌ กรุณากรอกภารกิจ / งาน'); return; }
+      if (!types.length)    { showErr('assignError', '❌ กรุณาเลือกประเภทงาน'); return; }
+      if (!priority)        { showErr('assignError', '❌ กรุณาเลือกความสำคัญ'); return; }
+      if (!startDate)       { showErr('assignError', '❌ กรุณาเลือกวันที่เริ่มทำ'); return; }
+      if (!deadline)        { showErr('assignError', '❌ กรุณาเลือกวันที่ Deadline'); return; }
+      if (!timeSlots.length){ showErr('assignError', '❌ กรุณาเลือกช่วงเวลาดำเนินงาน'); return; }
+      if (!checked.length)  { showErr('assignError', '❌ กรุณาเลือกผู้รับงานอย่างน้อย 1 คน'); return; }
 
-      // แสดงสรุปใน modal
       document.getElementById('cf_task').textContent     = task;
-      document.getElementById('cf_type').textContent     = type;
+      document.getElementById('cf_type').textContent     = types.join(', ');
       document.getElementById('cf_priority').innerHTML   = badgePriority(priority);
       document.getElementById('cf_start').textContent    = fmtThai(startDate);
       document.getElementById('cf_deadline').textContent = fmtThai(deadline);
-      document.getElementById('cf_timeslot').textContent = timeSlot;
+      document.getElementById('cf_timeslot').textContent = timeSlots.join(', ');
       document.getElementById('cf_assign').innerHTML     = checked.map(p =>
         `<span class="badge badge-planning" style="font-size:12px;margin:2px">${escHtml(p)}</span>`).join('');
       document.getElementById('confirmModal').style.display = 'flex';
@@ -289,11 +381,11 @@
 
     async function submitTask() {
       const task      = document.getElementById('aTask').value.trim();
-      const type      = document.getElementById('aType').value;
+      const types     = getMsValues('aType');
       const priority  = document.getElementById('aPriority').value;
       const startDate = document.getElementById('aStartDate').value;
       const deadline  = document.getElementById('aDeadline').value;
-      const timeSlot  = document.getElementById('aTimeSlot').value;
+      const timeSlots = getMsValues('aTimeSlot');
       const checked   = [...document.querySelectorAll('#assigneeGrid input:checked')].map(i => i.value);
       const today = todayStr();
 
@@ -308,9 +400,9 @@
         await apiPost({
           action: 'addTask',
           task,
-          type,
+          type: types.join(', '),
           priority,
-          timeSlot,
+          timeSlot: timeSlots.join(', '),
           assignTo: checked.join(', '),
           deadline: fmtThai(deadline),
           dateAdded: today,
@@ -322,9 +414,9 @@
         document.getElementById('aTask').value = '';
         document.getElementById('aStartDate').value = '';
         document.getElementById('aDeadline').value = '';
-        document.getElementById('aType').value = '';
+        clearMs('aType');
         document.getElementById('aPriority').value = '';
-        document.getElementById('aTimeSlot').value = '';
+        clearMs('aTimeSlot');
         document.querySelectorAll('#assigneeGrid input').forEach(i => { i.checked = false; i.closest('.checkbox-item').classList.remove('checked'); });
         document.getElementById('assignError').style.display = 'none';
         closeConfirm();
