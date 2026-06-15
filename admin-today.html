@@ -298,64 +298,33 @@
     </div>
   </div>
 
-  <!-- EDIT TASK MODAL -->
-  <div id="editModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeEditModal()">
-    <div class="modal" style="max-width:540px">
+  <!-- UPDATE MODAL -->
+  <div id="updateModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
+    <div class="modal" style="max-width:440px">
       <div class="modal-header">
-        <span class="modal-title">✏️ แก้ไขงาน</span>
-        <button class="modal-close" onclick="closeEditModal()">✕</button>
+        <span class="modal-title">อัปเดตงาน</span>
+        <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
-      <div class="modal-body" style="max-height:65vh;overflow-y:auto">
+      <div class="modal-body">
+        <div id="updateTaskName" style="font-weight:600;margin-bottom:16px;color:#0F172A;font-size:15px"></div>
         <div class="form-group">
-          <label>ภารกิจ / งาน</label>
-          <textarea id="eTask" rows="2" style="width:100%;padding:8px 12px;border:1.5px solid #E2E8F0;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;resize:vertical;box-sizing:border-box"></textarea>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="form-group">
-            <label>ประเภทงาน</label>
-            <select id="eType"></select>
-          </div>
-          <div class="form-group">
-            <label>ความสำคัญ</label>
-            <select id="ePriority">
-              <option value="">-- ไม่ระบุ --</option>
-              <option>ด่วนมาก</option>
-              <option>ไม่เร่งด่วนแต่สำคัญ</option>
-              <option>ไม่สำคัญแต่เร่งด่วน</option>
-              <option>รอได้ไม่สำคัญ</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>วันเริ่มงาน</label>
-            <input type="date" id="eStartDate" style="width:100%;padding:8px 12px;border:1.5px solid #E2E8F0;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;box-sizing:border-box">
-          </div>
-          <div class="form-group">
-            <label>Deadline</label>
-            <input type="date" id="eDeadline" style="width:100%;padding:8px 12px;border:1.5px solid #E2E8F0;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;box-sizing:border-box">
-          </div>
-          <div class="form-group">
-            <label>ช่วงเวลา</label>
-            <select id="eTimeSlot"></select>
-          </div>
-          <div class="form-group">
-            <label>สถานะ</label>
-            <select id="eStatus">
-              <option>ยังไม่เริ่ม</option>
-              <option>กำลังวางแผน</option>
-              <option>ลงมือทำ</option>
-              <option>ติดตามผล</option>
-              <option>เสร็จเรียบร้อย</option>
-            </select>
-          </div>
+          <label>สถานะ</label>
+          <select id="uStatus">
+            <option>ยังไม่เริ่ม</option>
+            <option>กำลังวางแผน</option>
+            <option>ลงมือทำ</option>
+            <option>ติดตามผล</option>
+            <option>เสร็จเรียบร้อย</option>
+          </select>
         </div>
         <div class="form-group">
           <label>Assign To</label>
-          <div id="eAssignWrap" style="display:flex;flex-wrap:wrap;gap:8px;padding:4px 0"></div>
+          <div id="uAssignWrap" style="display:flex;flex-wrap:wrap;gap:8px;padding:4px 0"></div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeEditModal()">ยกเลิก</button>
-        <button class="btn btn-primary" id="editSaveBtn" onclick="saveEdit()">💾 บันทึก</button>
+        <button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+        <button class="btn btn-primary" id="updateSaveBtn" onclick="saveStatus()">บันทึก</button>
       </div>
     </div>
   </div>
@@ -785,7 +754,7 @@
           <td>${badgeStatus(t.status)}${t.lateFinish ? ' <span style="background:#FEF3C7;color:#92400E;font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px">⚠️ เสร็จช้า</span>' : ''}</td>
           <td style="min-width:100px">${progressBar(t.percent)}</td>
           <td style="white-space:nowrap">
-            ${isDone ? '' : `<button class="btn btn-outline btn-sm" onclick="openEdit(${t.rowIndex})">✏️ แก้ไข</button>`}
+            ${isDone ? '' : `<button class="btn btn-outline btn-sm" onclick="openUpdate(${t.rowIndex})">อัปเดต</button>`}
             ${orderSelect}
             ${isAdmin ? `<button class="btn btn-sm" style="color:#7C3AED;border:1.5px solid #DDD6FE;background:white;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:2px" onclick="openAuditLog(${t.rowIndex},'${escHtml(t.task)}')">ประวัติ</button>` : ''}
             ${isAdmin ? `<button class="btn btn-sm" style="color:#EF4444;border:1.5px solid #FCA5A5;background:white;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:2px" onclick="confirmDeleteTask(${t.rowIndex},'${escHtml(t.task)}')">ลบ</button>` : ''}
@@ -831,83 +800,55 @@
       }
     }
 
-    // ===== EDIT MODAL =====
-    function thaiToInputDate(str) {
-      if (!str) return '';
-      const p = str.split('/');
-      if (p.length !== 3) return '';
-      return `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
-    }
-
-    function openEdit(rowIndex) {
+    // ===== UPDATE MODAL =====
+    function openUpdate(rowIndex) {
       const t = allTasks.find(x => x.rowIndex === rowIndex);
       if (!t) return;
       editRowIndex = rowIndex;
-
-      document.getElementById('eTask').value = t.task || '';
-      document.getElementById('ePriority').value = t.priority || '';
-      document.getElementById('eStatus').value = t.status || 'ยังไม่เริ่ม';
-      document.getElementById('eStartDate').value = thaiToInputDate(t.startDate);
-      document.getElementById('eDeadline').value = thaiToInputDate(t.deadline);
-
-      const types = [...new Set(allTasks.map(x => x.type).filter(Boolean))].sort();
-      document.getElementById('eType').innerHTML =
-        '<option value="">-- ไม่ระบุ --</option>' +
-        types.map(tp => `<option${t.type===tp?' selected':''}>${tp}</option>`).join('');
-
-      const slots = [...new Set(allTasks.map(x => x.timeSlot).filter(Boolean))].sort();
-      document.getElementById('eTimeSlot').innerHTML =
-        '<option value="">-- ไม่ระบุ --</option>' +
-        slots.map(s => `<option${t.timeSlot===s?' selected':''}>${s}</option>`).join('');
+      document.getElementById('updateTaskName').textContent = t.task;
+      document.getElementById('uStatus').value = t.status || 'ยังไม่เริ่ม';
 
       const persons = [...new Set(allTasks.flatMap(x => x.assignTo.split(',').map(s=>s.trim()).filter(Boolean)))].sort();
       const assigned = t.assignTo.split(',').map(s=>s.trim()).filter(Boolean);
-      document.getElementById('eAssignWrap').innerHTML = persons.map(p => `
+      document.getElementById('uAssignWrap').innerHTML = persons.map(p => `
         <label style="display:flex;align-items:center;gap:6px;padding:5px 10px;border:1.5px solid #E2E8F0;border-radius:8px;cursor:pointer;font-size:13px;user-select:none">
           <input type="checkbox" value="${escHtml(p)}" ${assigned.includes(p)?'checked':''} style="width:14px;height:14px">
           ${escHtml(p)}
         </label>`).join('');
 
-      document.getElementById('editModal').style.display = 'flex';
+      document.getElementById('updateModal').style.display = 'flex';
     }
 
-    function closeEditModal() { document.getElementById('editModal').style.display = 'none'; }
-
-    async function saveEdit() {
+    async function saveStatus() {
       const t = allTasks.find(x => x.rowIndex === editRowIndex);
       if (!t) return;
-      const btn = document.getElementById('editSaveBtn');
+      const btn = document.getElementById('updateSaveBtn');
       btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
 
-      const status  = document.getElementById('eStatus').value;
-      const percent = PERCENT_MAP[status] || t.percent || '0%';
-      const isDone  = status === 'เสร็จเรียบร้อย';
-      const wasDone = t.status === 'เสร็จเรียบร้อย';
+      const status   = document.getElementById('uStatus').value;
+      const percent  = PERCENT_MAP[status] || '0%';
+      const isDone   = status === 'เสร็จเรียบร้อย';
+      const wasDone  = t.status === 'เสร็จเรียบร้อย';
       const doneDate = isDone ? (wasDone ? (t.doneDate || '') : todayStr()) : '';
-      const assignTo = [...document.querySelectorAll('#eAssignWrap input:checked')].map(i=>i.value).join(', ');
+      const assignTo = [...document.querySelectorAll('#uAssignWrap input:checked')].map(i=>i.value).join(', ');
 
       try {
         await apiPost({
-          action:    'editTask',
-          rowIndex:  editRowIndex,
-          editor:    user.name || user.username || '',
-          task:      document.getElementById('eTask').value.trim(),
-          type:      document.getElementById('eType').value,
-          priority:  document.getElementById('ePriority').value,
-          assignTo,
-          startDate: document.getElementById('eStartDate').value,
-          deadline:  document.getElementById('eDeadline').value,
-          timeSlot:  document.getElementById('eTimeSlot').value,
-          status, percent, doneDate
+          action: 'editTask',
+          rowIndex: editRowIndex,
+          editor: user.name || user.username || '',
+          status, percent, doneDate, assignTo
         });
-        closeEditModal();
+        closeModal();
         await loadAll();
       } catch(e) {
-        alert('บันทึกไม่สำเร็จ: ' + e.message);
+        alert('อัปเดตไม่สำเร็จ: ' + e.message);
       } finally {
-        btn.disabled = false; btn.textContent = '💾 บันทึก';
+        btn.disabled = false; btn.textContent = 'บันทึก';
       }
     }
+
+    function closeModal() { document.getElementById('updateModal').style.display = 'none'; }
 
     // ===== AUDIT LOG MODAL =====
     async function openAuditLog(rowIndex, taskName) {
