@@ -884,8 +884,6 @@
 
     function closeAuditModal() { document.getElementById('auditModal').style.display = 'none'; }
 
-    // keep closeModal alias (used nowhere now but safe to keep)
-    function closeModal() { closeEditModal(); }
 
     function fmtDateThai(d) {
       const thai = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
