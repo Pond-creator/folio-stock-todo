@@ -24,7 +24,7 @@ function setNavUser(user) {
   const el = document.getElementById('navUserName');
   const rl = document.getElementById('navRole');
   if (el) el.textContent = user.displayName || user.username;
-  const roleLabel = { admin: 'Admin', staff: 'Staff', user: 'User' };
+  const roleLabel = { admin: 'Admin', staff: 'Staff', user: 'User', monitor: 'Monitor' };
   if (rl) rl.textContent = roleLabel[user.role] || user.role;
 }
 
@@ -32,13 +32,18 @@ function setNavUser(user) {
 function buildNavTabs(activePage) {
   const user = getSession();
   if (!user) return '';
-  const isAdmin = user.role === 'admin';
-  const isStaff = user.role === 'staff';
+  const isAdmin   = user.role === 'admin';
+  const isStaff   = user.role === 'staff';
+  const isMonitor = user.role === 'monitor';
 
   const tabs = [];
   if (isAdmin || isStaff) {
     tabs.push({ href: 'admin-today.html',  label: '📋 งานวันนี้',     id: 'today'  });
     tabs.push({ href: 'admin-assign.html', label: '📝 มอบหมายงาน',   id: 'assign' });
+  }
+  if (isMonitor) {
+    tabs.push({ href: 'admin-today.html',   label: '📋 งานวันนี้', id: 'today'   });
+    tabs.push({ href: 'admin-summary.html', label: '📊 สรุปผล',    id: 'summary' });
   }
   if (isAdmin) {
     tabs.push({ href: 'admin-summary.html', label: '📊 สรุปผล',       id: 'summary' });

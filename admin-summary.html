@@ -106,7 +106,7 @@
     let user, summaryData = null;
 
     async function init() {
-      user = requireAuth('admin');
+      user = requireAuth(['admin', 'monitor']);
       if (!user) return;
       setNavUser(user);
       renderNav('summary');

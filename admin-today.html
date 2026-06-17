@@ -252,10 +252,7 @@
           <span class="card-title" id="listTitle">📋 งานวันนี้และยังไม่เสร็จ</span>
           <span id="activeFilterPill" style="display:none"></span>
         </div>
-        <div class="flex-gap">
-          <button class="btn btn-outline btn-sm" onclick="exportTasks()">⬇️ Export CSV</button>
-          <button class="btn btn-primary btn-sm" onclick="location.href='admin-assign.html'">＋ มอบหมายงาน</button>
-        </div>
+        <div class="flex-gap" id="headerActions"></div>
       </div>
 
       <!-- DATE FILTER -->
@@ -358,10 +355,14 @@
     const DATE_LABEL = { all:'ทุกวัน', today:'วันนี้', yesterday:'เมื่อวาน', week:'7 วัน', month:'เดือนนี้', custom:'ช่วงที่เลือก' };
 
     async function init() {
-      user = requireAuth(['admin', 'staff']);
+      user = requireAuth(['admin', 'staff', 'monitor']);
       if (!user) return;
       setNavUser(user);
       renderNav('today');
+      const isMonitor = user.role === 'monitor';
+      document.getElementById('headerActions').innerHTML = isMonitor ? '' :
+        `<button class="btn btn-outline btn-sm" onclick="exportTasks()">⬇️ Export CSV</button>
+         <button class="btn btn-primary btn-sm" onclick="location.href='admin-assign.html'">＋ มอบหมายงาน</button>`;
       await loadAll();
     }
 
@@ -725,6 +726,7 @@
 
     function taskTable(tasks) {
       const isAdmin = user && user.role === 'admin';
+      const isMonitor = user && user.role === 'monitor';
       // รวบรวมหมายเลขที่ถูกใช้แล้ว
       const usedOrders = new Set(allTasks.map(t => t.adminOrder).filter(n => n !== null));
       const maxOrder = 10;
@@ -754,12 +756,12 @@
           <td><span style="font-size:13px">${t.timeSlot||'-'}</span></td>
           <td>${badgeStatus(t.status)}${t.lateFinish ? ' <span style="background:#FEF3C7;color:#92400E;font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px">⚠️ เสร็จช้า</span>' : ''}</td>
           <td style="min-width:100px">${progressBar(t.percent)}</td>
-          <td style="white-space:nowrap">
+          ${isMonitor ? '' : `<td style="white-space:nowrap">
             ${isDone ? '' : `<button class="btn btn-outline btn-sm" onclick="openUpdate(${t.rowIndex})">อัปเดต</button>`}
             ${orderSelect}
             ${isAdmin ? `<button class="btn btn-sm" style="color:#7C3AED;border:1.5px solid #DDD6FE;background:white;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:2px" onclick="openAuditLog(${t.rowIndex},'${escHtml(t.task)}')">ประวัติ</button>` : ''}
             ${isAdmin ? `<button class="btn btn-sm" style="color:#EF4444;border:1.5px solid #FCA5A5;background:white;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:2px" onclick="confirmDeleteTask(${t.rowIndex},'${escHtml(t.task)}')">ลบ</button>` : ''}
-          </td>
+          </td>`}
         </tr>`;
       }).join('');
 
@@ -768,7 +770,7 @@
         <thead><tr>
           <th>#</th><th>ภารกิจ / งาน</th><th>ประเภท</th><th>ความสำคัญ</th>
           <th>Assign to</th><th>Deadline</th><th>ช่วงเวลา</th><th>สถานะ</th>
-          <th>ความคืบหน้า</th><th></th>
+          <th>ความคืบหน้า</th>${isMonitor ? '' : '<th></th>'}
         </tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
