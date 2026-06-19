@@ -667,7 +667,8 @@
       const clearBtn = document.getElementById('clearSearchBtn');
       if (box) box.value = '';
       if (clearBtn) clearBtn.style.display = 'none';
-      applyFilters();
+      currentPage = 1;
+      renderFlatList(filteredTasks);
     }
 
     function exportTasks() {
