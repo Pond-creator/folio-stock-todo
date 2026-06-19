@@ -360,9 +360,17 @@
       setNavUser(user);
       renderNav('today');
       const isMonitor = user.role === 'monitor';
-      document.getElementById('headerActions').innerHTML = isMonitor ? '' :
-        `<button class="btn btn-outline btn-sm" onclick="exportTasks()">⬇️ Export CSV</button>
-         <button class="btn btn-primary btn-sm" onclick="location.href='admin-assign.html'">＋ มอบหมายงาน</button>`;
+      document.getElementById('headerActions').innerHTML = isMonitor
+        ? `<div style="position:relative">
+            <input id="searchBox" type="text" placeholder="🔍 ค้นหางาน..." oninput="applyFilters()"
+              style="padding:6px 12px 6px 12px;border:1.5px solid #CBD5E1;border-radius:8px;font-size:14px;width:220px;outline:none">
+          </div>`
+        : `<div style="position:relative">
+            <input id="searchBox" type="text" placeholder="🔍 ค้นหางาน..." oninput="applyFilters()"
+              style="padding:6px 12px 6px 12px;border:1.5px solid #CBD5E1;border-radius:8px;font-size:14px;width:220px;outline:none">
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="exportTasks()">⬇️ Export CSV</button>
+          <button class="btn btn-primary btn-sm" onclick="location.href='admin-assign.html'">＋ มอบหมายงาน</button>`;
       await loadAll();
     }
 
@@ -581,6 +589,17 @@
         if (priority && t.priority !== priority) return false;
         return true;
       });
+
+      // 5) กรองตาม keyword ค้นหา
+      const kw = (document.getElementById('searchBox')?.value || '').trim().toLowerCase();
+      if (kw) {
+        base = base.filter(t =>
+          (t.task || '').toLowerCase().includes(kw) ||
+          (t.type || '').toLowerCase().includes(kw) ||
+          (t.assignTo || '').toLowerCase().includes(kw) ||
+          (t.priority || '').toLowerCase().includes(kw)
+        );
+      }
 
       updateFilterPill();
 
