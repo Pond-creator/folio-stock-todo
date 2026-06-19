@@ -345,7 +345,7 @@
   <script src="js/auth.js"></script>
   <script src="js/api.js?v=2"></script>
   <script>
-    let user, allTasks = [], filteredTasks = [], activeCard = 'all', activeDateFilter = 'all', editRowIndex = null;
+    let user, allTasks = [], filteredTasks = [], activeCard = 'all', activeDateFilter = 'all', editRowIndex = null, searchKeyword = '';
     const PAGE_SIZE = 30;
     let currentPage = 1;
 
@@ -591,13 +591,12 @@
       });
 
       // 5) กรองตาม keyword ค้นหา
-      const kw = (document.getElementById('searchBox')?.value || '').trim().toLowerCase();
-      if (kw) {
+      if (searchKeyword) {
         base = base.filter(t =>
-          (t.task || '').toLowerCase().includes(kw) ||
-          (t.type || '').toLowerCase().includes(kw) ||
-          (t.assignTo || '').toLowerCase().includes(kw) ||
-          (t.priority || '').toLowerCase().includes(kw)
+          (t.task || '').toLowerCase().includes(searchKeyword) ||
+          (t.type || '').toLowerCase().includes(searchKeyword) ||
+          (t.assignTo || '').toLowerCase().includes(searchKeyword) ||
+          (t.priority || '').toLowerCase().includes(searchKeyword)
         );
       }
 
@@ -647,13 +646,14 @@
     }
 
     function doSearch() {
-      const kw = (document.getElementById('searchBox')?.value || '').trim();
+      searchKeyword = (document.getElementById('searchBox')?.value || '').trim().toLowerCase();
       const clearBtn = document.getElementById('clearSearchBtn');
-      if (clearBtn) clearBtn.style.display = kw ? '' : 'none';
+      if (clearBtn) clearBtn.style.display = searchKeyword ? '' : 'none';
       applyFilters();
     }
 
     function clearSearch() {
+      searchKeyword = '';
       const box = document.getElementById('searchBox');
       const clearBtn = document.getElementById('clearSearchBtn');
       if (box) box.value = '';
