@@ -360,15 +360,15 @@
       setNavUser(user);
       renderNav('today');
       const isMonitor = user.role === 'monitor';
+      const searchHtml = `
+        <input id="searchBox" type="text" placeholder="🔍 ค้นหางาน..."
+          onkeydown="if(event.key==='Enter')doSearch()"
+          style="padding:6px 12px;border:1.5px solid #CBD5E1;border-radius:8px 0 0 8px;font-size:14px;width:200px;outline:none;height:34px;box-sizing:border-box">
+        <button onclick="doSearch()" style="padding:6px 12px;background:#3B82F6;color:white;border:none;font-size:13px;cursor:pointer;height:34px">ค้นหา</button>
+        <button id="clearSearchBtn" onclick="clearSearch()" style="padding:6px 10px;background:#F1F5F9;color:#64748B;border:1.5px solid #CBD5E1;border-left:none;border-radius:0 8px 8px 0;font-size:13px;cursor:pointer;height:34px;display:none">✕</button>`;
       document.getElementById('headerActions').innerHTML = isMonitor
-        ? `<div style="position:relative">
-            <input id="searchBox" type="text" placeholder="🔍 ค้นหางาน..." oninput="applyFilters()"
-              style="padding:6px 12px 6px 12px;border:1.5px solid #CBD5E1;border-radius:8px;font-size:14px;width:220px;outline:none">
-          </div>`
-        : `<div style="position:relative">
-            <input id="searchBox" type="text" placeholder="🔍 ค้นหางาน..." oninput="applyFilters()"
-              style="padding:6px 12px 6px 12px;border:1.5px solid #CBD5E1;border-radius:8px;font-size:14px;width:220px;outline:none">
-          </div>
+        ? searchHtml
+        : `${searchHtml}
           <button class="btn btn-outline btn-sm" onclick="exportTasks()">⬇️ Export CSV</button>
           <button class="btn btn-primary btn-sm" onclick="location.href='admin-assign.html'">＋ มอบหมายงาน</button>`;
       await loadAll();
@@ -644,6 +644,21 @@
       const d = new Date();
       const s = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       return `${prefix}_${s}.csv`;
+    }
+
+    function doSearch() {
+      const kw = (document.getElementById('searchBox')?.value || '').trim();
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if (clearBtn) clearBtn.style.display = kw ? '' : 'none';
+      applyFilters();
+    }
+
+    function clearSearch() {
+      const box = document.getElementById('searchBox');
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if (box) box.value = '';
+      if (clearBtn) clearBtn.style.display = 'none';
+      applyFilters();
     }
 
     function exportTasks() {
