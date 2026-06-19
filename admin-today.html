@@ -649,7 +649,16 @@
       searchKeyword = (document.getElementById('searchBox')?.value || '').trim().toLowerCase();
       const clearBtn = document.getElementById('clearSearchBtn');
       if (clearBtn) clearBtn.style.display = searchKeyword ? '' : 'none';
-      applyFilters();
+      const display = searchKeyword
+        ? filteredTasks.filter(t =>
+            (t.task     || '').toLowerCase().includes(searchKeyword) ||
+            (t.type     || '').toLowerCase().includes(searchKeyword) ||
+            (t.assignTo || '').toLowerCase().includes(searchKeyword) ||
+            (t.priority || '').toLowerCase().includes(searchKeyword)
+          )
+        : filteredTasks;
+      currentPage = 1;
+      renderFlatList(display);
     }
 
     function clearSearch() {
