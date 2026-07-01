@@ -49,6 +49,7 @@
         <div class="stat-label">เสร็จแล้ว</div>
         <div class="stat-value" id="sDone">-</div>
         <div class="stat-sub" id="sDonePct"></div>
+        <div class="stat-sub" id="sDoneBreakdown" style="font-size:12px;margin-top:2px"></div>
       </div>
       <div class="stat-card amber">
         <div class="stat-label">ยังค้างอยู่</div>
@@ -129,6 +130,13 @@
 
         const pct = r.total > 0 ? Math.round(r.done / r.total * 100) : 0;
         document.getElementById('sDonePct').textContent = pct + '%';
+
+        const dOnTime = r.doneOnTime || 0, dLate = r.doneLate || 0;
+        const onTimePct = r.done > 0 ? Math.round(dOnTime / r.done * 100) : 0;
+        const latePct   = r.done > 0 ? Math.round(dLate / r.done * 100) : 0;
+        document.getElementById('sDoneBreakdown').innerHTML =
+          `<span style="color:#16A34A">✅ ตรงเวลา ${dOnTime} (${onTimePct}%)</span> · ` +
+          `<span style="color:#DC2626">⚠️ ช้า ${dLate} (${latePct}%)</span>`;
         document.getElementById('overallBar').style.width = pct + '%';
         document.getElementById('overallPct').textContent = pct + '%';
         document.getElementById('overallText').textContent = `เสร็จแล้ว ${r.done} จาก ${r.total} งาน`;
@@ -164,6 +172,7 @@
           <td>${nameCell}</td>
           <td style="text-align:center;font-weight:700">${s.total}</td>
           <td style="text-align:center;color:#16A34A;font-weight:600">${s.done}</td>
+          <td style="text-align:center;color:#DC2626;font-weight:600">${s.doneLate||0}</td>
           <td style="text-align:center;color:#D97706;font-weight:600">${s.pending}</td>
           <td style="min-width:120px">
             <div style="display:flex;align-items:center;gap:8px">
@@ -181,7 +190,7 @@
           <table>
             <thead><tr>
               <th>ชื่อ</th><th style="text-align:center">รวม</th>
-              <th style="text-align:center">เสร็จ</th><th style="text-align:center">ค้าง</th>
+              <th style="text-align:center">เสร็จ</th><th style="text-align:center">ช้า</th><th style="text-align:center">ค้าง</th>
               <th>ความคืบหน้า</th>
             </tr></thead>
             <tbody>${rows}</tbody>
@@ -254,6 +263,8 @@
       rows.push(['=== ภาพรวม ===']);
       rows.push(['งานทั้งหมด', summaryData.total]);
       rows.push(['เสร็จแล้ว', summaryData.done]);
+      rows.push(['  - เสร็จตรงเวลา', summaryData.doneOnTime || 0]);
+      rows.push(['  - เสร็จช้า', summaryData.doneLate || 0]);
       rows.push(['ค้างอยู่', summaryData.pending]);
       rows.push(['ใกล้ Deadline', summaryData.nearDeadline]);
       const pct = summaryData.total > 0 ? Math.round(summaryData.done / summaryData.total * 100) : 0;
@@ -261,10 +272,10 @@
       rows.push([]);
       // รายคน
       rows.push(['=== สถิติรายคน ===']);
-      rows.push(['ชื่อ','รวม','เสร็จ','ค้าง','%']);
+      rows.push(['ชื่อ','รวม','เสร็จ','เสร็จช้า','ค้าง','%']);
       Object.entries(summaryData.byPerson).sort((a,b)=>b[1].total-a[1].total).forEach(([name,s]) => {
         const p = s.total > 0 ? Math.round(s.done/s.total*100) : 0;
-        rows.push([name, s.total, s.done, s.pending, p+'%']);
+        rows.push([name, s.total, s.done, s.doneLate||0, s.pending, p+'%']);
       });
       rows.push([]);
       // ตามประเภท
