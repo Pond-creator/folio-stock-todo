@@ -319,13 +319,13 @@
           <label>Assign To</label>
           <div id="uAssignWrap" style="display:flex;flex-wrap:wrap;gap:8px;padding:4px 0"></div>
         </div>
-        <div class="form-group" id="doneDateGroup" style="display:none">
-          <label>📅 วันเสร็จงาน <span style="font-size:12px;color:#94A3B8">(แก้ไขได้เฉพาะ Admin เพื่อปรับ KPI)</span></label>
-          <input type="date" id="uDoneDate" onchange="onDoneDateChange()"
+        <div class="form-group" id="deadlineGroup" style="display:none">
+          <label>📅 แก้ Deadline <span style="font-size:12px;color:#94A3B8">(เฉพาะ Admin — ปรับ KPI งานที่ยังไม่เสร็จ)</span></label>
+          <input type="date" id="uDeadline" onchange="onDeadlineChange()"
             style="width:100%;padding:8px 12px;border:1.5px solid #E2E8F0;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;color:#0F172A">
-          <div id="doneNoteWrap" style="display:none;margin-top:12px">
-            <label style="color:#B91C1C">❗ เหตุผลการแก้วันเสร็จ <span style="color:red">*</span></label>
-            <textarea id="uDoneNote" rows="2" placeholder="ระบุเหตุผล เช่น งานติดปัญหา รออะไหล่..."
+          <div id="deadlineNoteWrap" style="display:none;margin-top:12px">
+            <label style="color:#B91C1C">❗ เหตุผลการแก้ Deadline <span style="color:red">*</span></label>
+            <textarea id="uDeadlineNote" rows="2" placeholder="ระบุเหตุผล เช่น งานติดปัญหา รออะไหล่..."
               style="width:100%;padding:8px 12px;border:1.5px solid #FCA5A5;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;resize:vertical"></textarea>
           </div>
         </div>
@@ -355,7 +355,7 @@
   <script src="js/auth.js"></script>
   <script src="js/api.js?v=2"></script>
   <script>
-    let user, allTasks = [], filteredTasks = [], activeCard = 'all', activeDateFilter = 'all', editRowIndex = null, searchKeyword = '', editOrigDoneIso = '';
+    let user, allTasks = [], filteredTasks = [], activeCard = 'all', activeDateFilter = 'all', editRowIndex = null, searchKeyword = '', editOrigDeadlineIso = '';
     const PAGE_SIZE = 30;
     let currentPage = 1;
 
@@ -808,7 +808,7 @@
             ${daysLeftHtml(t.daysLeft)}
           </td>
           <td><span style="font-size:13px">${t.timeSlot||'-'}</span></td>
-          <td>${badgeStatus(t.status)}${t.lateFinish ? ' <span style="background:#FEF3C7;color:#92400E;font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px">⚠️ เสร็จช้า</span>' : ''}${t.doneDateEdited ? ' <span style="background:#FEE2E2;color:#B91C1C;font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px" title="Admin แก้ไขวันเสร็จ ดูเหตุผลในประวัติ">❗ วันจบงานถูกแก้ไข</span>' : ''}</td>
+          <td>${badgeStatus(t.status)}${t.lateFinish ? ' <span style="background:#FEF3C7;color:#92400E;font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px">⚠️ เสร็จช้า</span>' : ''}${t.deadlineEdited ? ' <span style="background:#FEE2E2;color:#B91C1C;font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px" title="Admin แก้ไข Deadline ดูเหตุผลในประวัติ">❗ Deadline ถูกแก้ไข</span>' : ''}</td>
           <td style="min-width:100px">${progressBar(t.percent)}</td>
           ${isMonitor ? '' : `<td style="white-space:nowrap">
             ${isDone ? '' : `<button class="btn btn-outline btn-sm" onclick="openUpdate(${t.rowIndex})">อัปเดต</button>`}
@@ -873,27 +873,26 @@
           ${escHtml(p)}
         </label>`).join('');
 
-      // ===== วันเสร็จ (admin + เฉพาะงานที่เสร็จแล้ว) =====
-      const doneGroup = document.getElementById('doneDateGroup');
-      if (user.role === 'admin' && t.status === 'เสร็จเรียบร้อย') {
-        doneGroup.style.display = 'block';
-        // เติมวันเสร็จเดิมที่บันทึกไว้ (ถ้าไม่มี ใช้วันนี้) เพื่อให้แก้ง่าย
-        editOrigDoneIso = thaiToIso(t.doneDate) || thaiToIso(todayStr());
-        document.getElementById('uDoneDate').value = editOrigDoneIso;
-        document.getElementById('uDoneNote').value = '';
-        document.getElementById('doneNoteWrap').style.display = 'none';
+      // ===== แก้ Deadline (admin + เฉพาะงานที่ยังไม่เสร็จเรียบร้อย) =====
+      const deadlineGroup = document.getElementById('deadlineGroup');
+      if (user.role === 'admin' && t.status !== 'เสร็จเรียบร้อย') {
+        deadlineGroup.style.display = 'block';
+        editOrigDeadlineIso = thaiToIso(t.deadline);
+        document.getElementById('uDeadline').value = editOrigDeadlineIso;
+        document.getElementById('uDeadlineNote').value = '';
+        document.getElementById('deadlineNoteWrap').style.display = 'none';
       } else {
-        doneGroup.style.display = 'none';
-        editOrigDoneIso = '';
+        deadlineGroup.style.display = 'none';
+        editOrigDeadlineIso = '';
       }
 
       document.getElementById('updateModal').style.display = 'flex';
     }
 
-    // แสดงช่องเหตุผลเมื่อ admin แก้วันเสร็จให้ต่างจากเดิม
-    function onDoneDateChange() {
-      const changed = (document.getElementById('uDoneDate').value || '') !== (editOrigDoneIso || '');
-      document.getElementById('doneNoteWrap').style.display = changed ? 'block' : 'none';
+    // แสดงช่องเหตุผลเมื่อ admin แก้ Deadline ให้ต่างจากเดิม
+    function onDeadlineChange() {
+      const changed = (document.getElementById('uDeadline').value || '') !== (editOrigDeadlineIso || '');
+      document.getElementById('deadlineNoteWrap').style.display = changed ? 'block' : 'none';
     }
 
     async function saveStatus() {
@@ -907,34 +906,38 @@
       const isDone   = status === 'เสร็จเรียบร้อย';
       const wasDone  = t.status === 'เสร็จเรียบร้อย';
       const assignTo = [...document.querySelectorAll('#uAssignWrap input:checked')].map(i=>i.value).join(', ');
+      const doneDate = isDone ? (wasDone ? (t.doneDate || '') : todayStr()) : '';
 
-      let doneDate, note = '';
-      const doneGroupVisible = document.getElementById('doneDateGroup').style.display !== 'none';
-      if (user.role === 'admin' && doneGroupVisible) {
-        // admin แก้วันเสร็จของงานที่เสร็จแล้ว
-        const iso = document.getElementById('uDoneDate').value;
-        if ((iso || '') === (editOrigDoneIso || '')) {
-          doneDate = t.doneDate || '';   // ไม่ได้แก้ → คงเดิม
-        } else {
-          doneDate = iso ? isoToThai(iso) : '';   // แก้แล้ว → บังคับใส่เหตุผล
-          note = document.getElementById('uDoneNote').value.trim();
-          if (!note) {
-            alert('กรุณาระบุเหตุผลการแก้วันเสร็จ');
+      const payload = {
+        action: 'editTask',
+        rowIndex: editRowIndex,
+        editor: user.name || user.username || '',
+        status, percent, doneDate, assignTo
+      };
+
+      // admin แก้ Deadline (เฉพาะงานที่ยังไม่เสร็จ) → บังคับใส่เหตุผล
+      const deadlineGroupVisible = document.getElementById('deadlineGroup').style.display !== 'none';
+      if (user.role === 'admin' && deadlineGroupVisible) {
+        const iso = document.getElementById('uDeadline').value;
+        if ((iso || '') !== (editOrigDeadlineIso || '')) {
+          if (!iso) {
+            alert('กรุณาระบุ Deadline');
             btn.disabled = false; btn.textContent = 'บันทึก';
             return;
           }
+          const note = document.getElementById('uDeadlineNote').value.trim();
+          if (!note) {
+            alert('กรุณาระบุเหตุผลการแก้ Deadline');
+            btn.disabled = false; btn.textContent = 'บันทึก';
+            return;
+          }
+          payload.deadline = iso;   // ส่ง ISO ให้ backend แปลงเป็นวันที่จริง
+          payload.note = note;
         }
-      } else {
-        doneDate = isDone ? (wasDone ? (t.doneDate || '') : todayStr()) : '';
       }
 
       try {
-        await apiPost({
-          action: 'editTask',
-          rowIndex: editRowIndex,
-          editor: user.name || user.username || '',
-          status, percent, doneDate, assignTo, note
-        });
+        await apiPost(payload);
         closeModal();
         await loadAll();
       } catch(e) {
