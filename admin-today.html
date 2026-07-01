@@ -319,6 +319,16 @@
           <label>Assign To</label>
           <div id="uAssignWrap" style="display:flex;flex-wrap:wrap;gap:8px;padding:4px 0"></div>
         </div>
+        <div class="form-group" id="doneDateGroup" style="display:none">
+          <label>📅 วันเสร็จงาน <span style="font-size:12px;color:#94A3B8">(แก้ไขได้เฉพาะ Admin เพื่อปรับ KPI)</span></label>
+          <input type="date" id="uDoneDate" onchange="onDoneDateChange()"
+            style="width:100%;padding:8px 12px;border:1.5px solid #E2E8F0;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;color:#0F172A">
+          <div id="doneNoteWrap" style="display:none;margin-top:12px">
+            <label style="color:#B91C1C">❗ เหตุผลการแก้วันเสร็จ <span style="color:red">*</span></label>
+            <textarea id="uDoneNote" rows="2" placeholder="ระบุเหตุผล เช่น งานติดปัญหา รออะไหล่..."
+              style="width:100%;padding:8px 12px;border:1.5px solid #FCA5A5;border-radius:8px;font-family:Sarabun,sans-serif;font-size:14px;resize:vertical"></textarea>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
@@ -345,7 +355,7 @@
   <script src="js/auth.js"></script>
   <script src="js/api.js?v=2"></script>
   <script>
-    let user, allTasks = [], filteredTasks = [], activeCard = 'all', activeDateFilter = 'all', editRowIndex = null, searchKeyword = '';
+    let user, allTasks = [], filteredTasks = [], activeCard = 'all', activeDateFilter = 'all', editRowIndex = null, searchKeyword = '', editOrigDoneIso = '';
     const PAGE_SIZE = 30;
     let currentPage = 1;
 
@@ -798,7 +808,7 @@
             ${daysLeftHtml(t.daysLeft)}
           </td>
           <td><span style="font-size:13px">${t.timeSlot||'-'}</span></td>
-          <td>${badgeStatus(t.status)}${t.lateFinish ? ' <span style="background:#FEF3C7;color:#92400E;font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px">⚠️ เสร็จช้า</span>' : ''}</td>
+          <td>${badgeStatus(t.status)}${t.lateFinish ? ' <span style="background:#FEF3C7;color:#92400E;font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px">⚠️ เสร็จช้า</span>' : ''}${t.doneDateEdited ? ' <span style="background:#FEE2E2;color:#B91C1C;font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px" title="Admin แก้ไขวันเสร็จ ดูเหตุผลในประวัติ">❗ วันจบงานถูกแก้ไข</span>' : ''}</td>
           <td style="min-width:100px">${progressBar(t.percent)}</td>
           ${isMonitor ? '' : `<td style="white-space:nowrap">
             ${isDone ? '' : `<button class="btn btn-outline btn-sm" onclick="openUpdate(${t.rowIndex})">อัปเดต</button>`}
@@ -863,7 +873,26 @@
           ${escHtml(p)}
         </label>`).join('');
 
+      // ===== วันเสร็จ (admin เท่านั้น) =====
+      const doneGroup = document.getElementById('doneDateGroup');
+      if (user.role === 'admin') {
+        doneGroup.style.display = 'block';
+        editOrigDoneIso = thaiToIso(t.doneDate);
+        document.getElementById('uDoneDate').value = editOrigDoneIso;
+        document.getElementById('uDoneNote').value = '';
+        document.getElementById('doneNoteWrap').style.display = 'none';
+      } else {
+        doneGroup.style.display = 'none';
+        editOrigDoneIso = '';
+      }
+
       document.getElementById('updateModal').style.display = 'flex';
+    }
+
+    // แสดงช่องเหตุผลเมื่อ admin แก้วันเสร็จให้ต่างจากเดิม
+    function onDoneDateChange() {
+      const changed = (document.getElementById('uDoneDate').value || '') !== (editOrigDoneIso || '');
+      document.getElementById('doneNoteWrap').style.display = changed ? 'block' : 'none';
     }
 
     async function saveStatus() {
@@ -876,15 +905,31 @@
       const percent  = PERCENT_MAP[status] || '0%';
       const isDone   = status === 'เสร็จเรียบร้อย';
       const wasDone  = t.status === 'เสร็จเรียบร้อย';
-      const doneDate = isDone ? (wasDone ? (t.doneDate || '') : todayStr()) : '';
       const assignTo = [...document.querySelectorAll('#uAssignWrap input:checked')].map(i=>i.value).join(', ');
+
+      let doneDate, note = '';
+      if (user.role === 'admin') {
+        // admin แก้วันเสร็จเองได้
+        const iso = document.getElementById('uDoneDate').value;
+        doneDate = iso ? isoToThai(iso) : (isDone && !wasDone ? todayStr() : (t.doneDate || ''));
+        if ((iso || '') !== (editOrigDoneIso || '')) {
+          note = document.getElementById('uDoneNote').value.trim();
+          if (!note) {
+            alert('กรุณาระบุเหตุผลการแก้วันเสร็จ');
+            btn.disabled = false; btn.textContent = 'บันทึก';
+            return;
+          }
+        }
+      } else {
+        doneDate = isDone ? (wasDone ? (t.doneDate || '') : todayStr()) : '';
+      }
 
       try {
         await apiPost({
           action: 'editTask',
           rowIndex: editRowIndex,
           editor: user.name || user.username || '',
-          status, percent, doneDate, assignTo
+          status, percent, doneDate, assignTo, note
         });
         closeModal();
         await loadAll();
@@ -937,6 +982,20 @@
       return `${String(thai.getDate()).padStart(2,'0')}/${String(thai.getMonth()+1).padStart(2,'0')}/${thai.getFullYear()}`;
     }
     function todayStr() { return fmtDateThai(new Date()); }
+    // "dd/MM/yyyy" -> "yyyy-MM-dd" (สำหรับ input type=date)
+    function thaiToIso(s) {
+      if (!s) return '';
+      const p = String(s).split('/');
+      if (p.length !== 3) return '';
+      return `${p[2]}-${String(p[1]).padStart(2,'0')}-${String(p[0]).padStart(2,'0')}`;
+    }
+    // "yyyy-MM-dd" -> "dd/MM/yyyy"
+    function isoToThai(s) {
+      if (!s) return '';
+      const p = String(s).split('-');
+      if (p.length !== 3) return '';
+      return `${p[2]}/${p[1]}/${p[0]}`;
+    }
     function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
     // แสดง/ซ่อนปุ่มรีเซ็ตลำดับ (เฉพาะ admin และมีลำดับที่กำหนดอยู่)
