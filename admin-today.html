@@ -873,11 +873,12 @@
           ${escHtml(p)}
         </label>`).join('');
 
-      // ===== วันเสร็จ (admin เท่านั้น) =====
+      // ===== วันเสร็จ (admin + เฉพาะงานที่เสร็จแล้ว) =====
       const doneGroup = document.getElementById('doneDateGroup');
-      if (user.role === 'admin') {
+      if (user.role === 'admin' && t.status === 'เสร็จเรียบร้อย') {
         doneGroup.style.display = 'block';
-        editOrigDoneIso = thaiToIso(t.doneDate);
+        // เติมวันเสร็จเดิมที่บันทึกไว้ (ถ้าไม่มี ใช้วันนี้) เพื่อให้แก้ง่าย
+        editOrigDoneIso = thaiToIso(t.doneDate) || thaiToIso(todayStr());
         document.getElementById('uDoneDate').value = editOrigDoneIso;
         document.getElementById('uDoneNote').value = '';
         document.getElementById('doneNoteWrap').style.display = 'none';
@@ -908,11 +909,14 @@
       const assignTo = [...document.querySelectorAll('#uAssignWrap input:checked')].map(i=>i.value).join(', ');
 
       let doneDate, note = '';
-      if (user.role === 'admin') {
-        // admin แก้วันเสร็จเองได้
+      const doneGroupVisible = document.getElementById('doneDateGroup').style.display !== 'none';
+      if (user.role === 'admin' && doneGroupVisible) {
+        // admin แก้วันเสร็จของงานที่เสร็จแล้ว
         const iso = document.getElementById('uDoneDate').value;
-        doneDate = iso ? isoToThai(iso) : (isDone && !wasDone ? todayStr() : (t.doneDate || ''));
-        if ((iso || '') !== (editOrigDoneIso || '')) {
+        if ((iso || '') === (editOrigDoneIso || '')) {
+          doneDate = t.doneDate || '';   // ไม่ได้แก้ → คงเดิม
+        } else {
+          doneDate = iso ? isoToThai(iso) : '';   // แก้แล้ว → บังคับใส่เหตุผล
           note = document.getElementById('uDoneNote').value.trim();
           if (!note) {
             alert('กรุณาระบุเหตุผลการแก้วันเสร็จ');
