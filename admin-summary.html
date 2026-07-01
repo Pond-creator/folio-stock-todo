@@ -32,7 +32,11 @@
   <div class="main">
     <div class="flex-between mb-24">
       <h1 class="page-title">📊 สรุปผลการดำเนินงาน</h1>
-      <div style="display:flex;gap:8px" class="no-print">
+      <div style="display:flex;gap:8px;align-items:center" class="no-print">
+        <select id="yearFilter" onchange="loadSummary()"
+          style="padding:6px 12px;border:1.5px solid #E2E8F0;border-radius:8px;font-family:Sarabun,sans-serif;font-size:13px;font-weight:600;color:#1E40AF;background:white;cursor:pointer">
+          <option value="all">ทุกปี</option>
+        </select>
         <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ บันทึก PDF</button>
         <button class="btn btn-outline btn-sm" onclick="exportSummary()">⬇️ Export CSV</button>
         <button class="btn btn-outline btn-sm" onclick="loadSummary()">🔄 รีเฟรช</button>
@@ -104,7 +108,7 @@
   <script src="js/auth.js"></script>
   <script src="js/api.js?v=2"></script>
   <script>
-    let user, summaryData = null;
+    let user, summaryData = null, selectedYear = String(new Date().getFullYear());
 
     async function init() {
       user = requireAuth(['admin', 'monitor']);
@@ -117,10 +121,19 @@
     async function loadSummary() {
       document.getElementById('byPersonContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
       document.getElementById('byTypeContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      const sel = document.getElementById('yearFilter');
+      if (sel && sel.options.length > 1) selectedYear = sel.value;   // ผู้ใช้เลือกเอง
       try {
-        const r = await apiGet({ action: 'getSummary' });
+        const requested = selectedYear;
+        const r = await apiGet({ action: 'getSummary', year: selectedYear });
         if (!r.success) { alert('โหลดข้อมูลไม่สำเร็จ'); return; }
+        // ปีที่ขอไม่มีข้อมูล → เปลี่ยนเป็นทุกปีแล้วโหลดใหม่รอบเดียว
+        if (requested !== 'all' && r.years && !r.years.includes(Number(requested))) {
+          selectedYear = 'all';
+          return loadSummary();
+        }
         summaryData = r;
+        populateYearFilter(r.years);
 
         document.getElementById('sTotal').textContent = r.total;
         document.getElementById('sDone').textContent = r.done;
@@ -145,6 +158,21 @@
         renderByType(r.byType);
       } catch (e) {
         document.getElementById('byPersonContainer').innerHTML = `<div class="alert alert-danger" style="margin:16px">${e.message}</div>`;
+      }
+    }
+
+    function populateYearFilter(years) {
+      const sel = document.getElementById('yearFilter');
+      if (!sel) return;
+      const opts = ['<option value="all">ทุกปี</option>']
+        .concat((years || []).map(y => `<option value="${y}">ปี ${y}</option>`));
+      sel.innerHTML = opts.join('');
+      // ตั้งค่าที่เลือกอยู่ (ถ้าปีนั้นไม่มีข้อมูล → กลับไปทุกปี)
+      if ([...sel.options].some(o => o.value === selectedYear)) {
+        sel.value = selectedYear;
+      } else {
+        sel.value = 'all';
+        selectedYear = 'all';
       }
     }
 
@@ -261,6 +289,7 @@
       const rows = [];
       // ภาพรวม
       rows.push(['=== ภาพรวม ===']);
+      rows.push(['ปี', selectedYear === 'all' ? 'ทุกปี' : selectedYear]);
       rows.push(['งานทั้งหมด', summaryData.total]);
       rows.push(['เสร็จแล้ว', summaryData.done]);
       rows.push(['  - เสร็จตรงเวลา', summaryData.doneOnTime || 0]);
