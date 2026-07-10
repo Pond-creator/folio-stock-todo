@@ -210,12 +210,14 @@
     }
 
     // ===== MULTI-SELECT HELPERS =====
+    // หมายเหตุ: <label> ครอบ <input> อยู่แล้ว → คลิกตรงไหนในแถวก็ toggle checkbox
+    // ให้ตามหลัก HTML เอง (native) ไม่ต้อง toggle ซ้ำด้วย JS (กันบั๊ก double-toggle)
     function fillMs(id, arr) {
       const dd = document.getElementById('dd-' + id);
       if (!dd) return;
       dd.innerHTML = arr.map(v => `
-        <label class="ms-item" onclick="toggleMsItem(this,'${id}')">
-          <input type="checkbox" value="${escHtml(v)}" onclick="event.stopPropagation()">
+        <label class="ms-item">
+          <input type="checkbox" value="${escHtml(v)}" onchange="onMsCheckChange(this,'${id}')">
           <span>${escHtml(v)}</span>
         </label>`).join('');
     }
@@ -228,10 +230,8 @@
       if (!isOpen) dd.classList.add('open');
     }
 
-    function toggleMsItem(label, id) {
-      const cb = label.querySelector('input');
-      cb.checked = !cb.checked;
-      label.classList.toggle('selected', cb.checked);
+    function onMsCheckChange(cb, id) {
+      cb.closest('.ms-item').classList.toggle('selected', cb.checked);
       updateMsLabel(id);
     }
 
