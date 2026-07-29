@@ -13,11 +13,19 @@ async function apiGet(params) {
   return res.json();
 }
 
+// อ่าน username จาก session ที่ login ไว้ในเบราว์เซอร์ (key เดียวกับ auth.js)
+function currentActor() {
+  try {
+    const u = JSON.parse(sessionStorage.getItem('folioUser'));
+    return (u && u.username) ? u.username : '';
+  } catch { return ''; }
+}
+
 async function apiPost(data) {
   const res = await fetchWithTimeout(CONFIG.API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(data),
+    body: JSON.stringify({ ...data, actingUsername: currentActor() }),
     redirect: 'follow'
   });
   if (!res.ok) throw new Error('Network error: ' + res.status);
