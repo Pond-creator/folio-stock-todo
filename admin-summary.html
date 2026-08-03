@@ -43,6 +43,18 @@
       </div>
     </div>
 
+    <!-- ช่วงวันที่ (Deadline) -->
+    <div class="no-print" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-8px 0 20px">
+      <span style="font-size:13px;font-weight:600;color:#374151">📅 ช่วงวันที่ (Deadline):</span>
+      <input type="date" id="dateFromFilter"
+        style="padding:6px 10px;border:1.5px solid #E2E8F0;border-radius:8px;font-family:Sarabun,sans-serif;font-size:13px;color:#374151">
+      <span style="font-size:13px;color:#64748B">ถึง</span>
+      <input type="date" id="dateToFilter"
+        style="padding:6px 10px;border:1.5px solid #E2E8F0;border-radius:8px;font-family:Sarabun,sans-serif;font-size:13px;color:#374151">
+      <button class="btn btn-primary btn-sm" onclick="applyDateRange()">ดูช่วงนี้</button>
+      <span id="rangeActivePill"></span>
+    </div>
+
     <!-- stat cards -->
     <div class="stats-grid mb-24">
       <div class="stat-card blue">
@@ -109,6 +121,7 @@
   <script src="js/api.js?v=2"></script>
   <script>
     let user, summaryData = null, selectedYear = String(new Date().getFullYear());
+    let rangeActive = false, rangeFrom = '', rangeTo = '';
 
     async function init() {
       user = requireAuth(['admin', 'monitor']);
@@ -118,22 +131,63 @@
       await loadSummary();
     }
 
+    // เลือกช่วงวันที่ (Deadline) — ใช้แทนตัวกรองปีชั่วคราว
+    function applyDateRange() {
+      const from = document.getElementById('dateFromFilter').value;
+      const to = document.getElementById('dateToFilter').value;
+      if (!from || !to) { alert('กรุณาเลือกทั้งวันเริ่มและวันสิ้นสุด'); return; }
+      if (from > to) { alert('วันเริ่มต้องไม่เกินวันสิ้นสุด'); return; }
+      rangeActive = true;
+      rangeFrom = from;
+      rangeTo = to;
+      const sel = document.getElementById('yearFilter');
+      if (sel) sel.disabled = true;
+      loadSummary();
+    }
+
+    function clearDateRange() {
+      rangeActive = false;
+      rangeFrom = ''; rangeTo = '';
+      document.getElementById('dateFromFilter').value = '';
+      document.getElementById('dateToFilter').value = '';
+      const sel = document.getElementById('yearFilter');
+      if (sel) sel.disabled = false;
+      loadSummary();
+    }
+
+    function updateRangePill() {
+      const pill = document.getElementById('rangeActivePill');
+      if (!rangeActive) { pill.innerHTML = ''; return; }
+      pill.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;background:#EFF6FF;border:1px solid #BFDBFE;color:#1E40AF;border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600">
+        🔍 ${fmtThai(rangeFrom)} – ${fmtThai(rangeTo)}
+        <button onclick="clearDateRange()" title="ล้างตัวกรอง" style="background:none;border:none;cursor:pointer;color:#60A5FA;font-size:14px;padding:0;line-height:1">✕</button>
+      </span>`;
+    }
+    function fmtThai(iso) {
+      const p = iso.split('-');
+      return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso;
+    }
+
     async function loadSummary() {
       document.getElementById('byPersonContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
       document.getElementById('byTypeContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
       const sel = document.getElementById('yearFilter');
-      if (sel && sel.options.length > 1) selectedYear = sel.value;   // ผู้ใช้เลือกเอง
+      if (sel && sel.options.length > 1 && !rangeActive) selectedYear = sel.value;   // ผู้ใช้เลือกเอง
+      const params = { action: 'getSummary' };
+      if (rangeActive) { params.dateFrom = rangeFrom; params.dateTo = rangeTo; }
+      else params.year = selectedYear;
       try {
         const requested = selectedYear;
-        const r = await apiGet({ action: 'getSummary', year: selectedYear });
+        const r = await apiGet(params);
         if (!r.success) { alert('โหลดข้อมูลไม่สำเร็จ'); return; }
-        // ปีที่ขอไม่มีข้อมูล → เปลี่ยนเป็นทุกปีแล้วโหลดใหม่รอบเดียว
-        if (requested !== 'all' && r.years && !r.years.includes(Number(requested))) {
+        // ปีที่ขอไม่มีข้อมูล → เปลี่ยนเป็นทุกปีแล้วโหลดใหม่รอบเดียว (ไม่เกี่ยวกับตอนกรองช่วงวันที่)
+        if (!rangeActive && requested !== 'all' && r.years && !r.years.includes(Number(requested))) {
           selectedYear = 'all';
           return loadSummary();
         }
         summaryData = r;
         populateYearFilter(r.years);
+        updateRangePill();
 
         document.getElementById('sTotal').textContent = r.total;
         document.getElementById('sDone').textContent = r.done;
@@ -289,7 +343,9 @@
       const rows = [];
       // ภาพรวม
       rows.push(['=== ภาพรวม ===']);
-      rows.push(['ปี', selectedYear === 'all' ? 'ทุกปี' : selectedYear]);
+      rows.push(rangeActive
+        ? ['ช่วงวันที่ (Deadline)', `${fmtThai(rangeFrom)} – ${fmtThai(rangeTo)}`]
+        : ['ปี', selectedYear === 'all' ? 'ทุกปี' : selectedYear]);
       rows.push(['งานทั้งหมด', summaryData.total]);
       rows.push(['เสร็จแล้ว', summaryData.done]);
       rows.push(['  - เสร็จตรงเวลา', summaryData.doneOnTime || 0]);
