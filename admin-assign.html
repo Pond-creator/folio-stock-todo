@@ -300,7 +300,7 @@
       else document.getElementById('recentContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
       try {
-        const r = await apiGet({ action: 'getTasks', role: 'admin' });
+        const r = await apiGet({ action: 'getTasks', role: 'admin', recentOnly: '1' });
         if (!r.success) return;
         const recent = r.tasks.slice(-10).reverse();
         sessionStorage.setItem('recentTasks', JSON.stringify(recent));
