@@ -356,6 +356,7 @@
   <script src="js/api.js?v=2"></script>
   <script>
     let user, allTasks = [], filteredTasks = [], activeCard = 'all', activeDateFilter = 'all', editRowIndex = null, searchKeyword = '', editOrigDeadlineIso = '';
+    let searchExtraTasks = []; // ผลค้นหางานเก่า (เสร็จเกิน 30 วัน) จากเซิร์ฟเวอร์ ที่ยังไม่มีใน allTasks
     const PAGE_SIZE = 30;
     let currentPage = 1;
 
@@ -387,7 +388,7 @@
     async function loadAll() {
       showLoading('taskContainer');
       try {
-        const tr = await apiGet({ action: 'getTasks', role: 'admin' });
+        const tr = await apiGet({ action: 'getTasks', role: 'admin', recentOnly: '1' });
         if (tr.success) {
           allTasks = tr.tasks;
           buildFilters();
@@ -560,13 +561,20 @@
       const priority = document.getElementById('filterPriority').value;
       const range    = getDateRange(); // null = ไม่กรองวัน
 
+      // ตอนกำลังค้นหา ให้รวมงานเก่า (เสร็จเกิน 30 วัน) ที่หาเจอจากเซิร์ฟเวอร์เข้ามาด้วย
+      let source = allTasks;
+      if (searchKeyword && searchExtraTasks.length) {
+        const known = new Set(allTasks.map(t => t.rowIndex));
+        source = allTasks.concat(searchExtraTasks.filter(t => !known.has(t.rowIndex)));
+      }
+
       let base;
 
       // 1) กรองตาม Card (สถานะ)
       if (activeCard === 'all') {
-        base = [...allTasks];
+        base = [...source];
       } else {
-        base = allTasks.filter(t => {
+        base = source.filter(t => {
           if (activeCard === 'notstarted') return !t.status || t.status === 'ยังไม่เริ่ม';
           if (activeCard === 'inprogress') return IN_PROGRESS.includes(t.status);
           if (activeCard === 'done')       return t.status === 'เสร็จเรียบร้อย';
@@ -655,20 +663,24 @@
       return `${prefix}_${s}.csv`;
     }
 
-    function doSearch() {
+    async function doSearch() {
       searchKeyword = (document.getElementById('searchBox')?.value || '').trim().toLowerCase();
       const clearBtn = document.getElementById('clearSearchBtn');
       if (clearBtn) clearBtn.style.display = searchKeyword ? '' : 'none';
-      const display = searchKeyword
-        ? filteredTasks.filter(t =>
-            (t.task     || '').toLowerCase().includes(searchKeyword) ||
-            (t.type     || '').toLowerCase().includes(searchKeyword) ||
-            (t.assignTo || '').toLowerCase().includes(searchKeyword) ||
-            (t.priority || '').toLowerCase().includes(searchKeyword)
-          )
-        : filteredTasks;
-      currentPage = 1;
-      renderFlatList(display);
+      searchExtraTasks = [];
+
+      if (searchKeyword) {
+        // หน้านี้โหลดแค่งานยังไม่เสร็จ + เสร็จใน 30 วัน ไว้เป็น default (เร็วขึ้น) — ตอนค้นหาให้หาในเซิร์ฟเวอร์ทั้งหมดด้วย เผื่อเป็นงานเก่า
+        try {
+          const r = await apiGet({ action: 'getTasks', role: 'admin', keyword: searchKeyword });
+          if (r.success) {
+            const known = new Set(allTasks.map(t => t.rowIndex));
+            searchExtraTasks = r.tasks.filter(t => !known.has(t.rowIndex));
+          }
+        } catch (e) { /* ค้นหาในงานที่โหลดไว้แล้วต่อได้ แม้เชื่อมเซิร์ฟเวอร์ไม่ได้ */ }
+      }
+
+      applyFilter();
     }
 
     function clearSearch() {
@@ -677,8 +689,8 @@
       const clearBtn = document.getElementById('clearSearchBtn');
       if (box) box.value = '';
       if (clearBtn) clearBtn.style.display = 'none';
-      currentPage = 1;
-      renderFlatList(filteredTasks);
+      searchExtraTasks = [];
+      applyFilter();
     }
 
     function exportTasks() {
