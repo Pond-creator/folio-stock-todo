@@ -357,6 +357,8 @@
   <script>
     let user, allTasks = [], filteredTasks = [], activeCard = 'all', activeDateFilter = 'all', editRowIndex = null, searchKeyword = '', editOrigDeadlineIso = '';
     let searchExtraTasks = []; // ผลค้นหางานเก่า (เสร็จเกิน 30 วัน) จากเซิร์ฟเวอร์ ที่ยังไม่มีใน allTasks
+    let fullyLoaded = false;     // true = allTasks มีงานเก่าครบแล้ว (ไม่ใช่แค่ 30 วัน)
+    let trueTotal = null, trueDone = null; // เลขจริงทั้งหมด/เสร็จแล้ว (จาก getSummary) ไม่ขึ้นกับว่าโหลดเต็มหรือยัง
     const PAGE_SIZE = 30;
     let currentPage = 1;
 
@@ -387,16 +389,35 @@
 
     async function loadAll() {
       showLoading('taskContainer');
+      fullyLoaded = false; // โหลดใหม่ทุกครั้ง = กลับเป็นชุดย่อก่อนเสมอ
       try {
-        const tr = await apiGet({ action: 'getTasks', role: 'admin', recentOnly: '1' });
-        if (tr.success) {
-          allTasks = tr.tasks;
-          buildFilters();
-          updateStats();
-          updateResetOrderBtn();
-          applyFilter();
-        }
+        const [tr, sr] = await Promise.all([
+          apiGet({ action: 'getTasks', role: 'admin', recentOnly: '1' }),
+          apiGet({ action: 'getSummary' }) // ไม่ระบุปี = ยอดรวมทุกยุค เอาไว้โชว์เลขจริงในการ์ด (เบา ไม่ใช่รายละเอียดทุกงาน)
+        ]);
+        if (tr.success) allTasks = tr.tasks;
+        trueTotal = sr.success ? sr.total : null;
+        trueDone  = sr.success ? sr.done  : null;
+        buildFilters();
+        updateStats();
+        updateResetOrderBtn();
+        applyFilter();
       } catch (e) { showError('taskContainer', e.message); }
+    }
+
+    // โหลดข้อมูลทุกงาน (รวมงานเสร็จเก่าเกิน 30 วัน) — ใช้ตอนกดดูการ์ด "งานทั้งหมด"/"เสร็จแล้ว" ให้ตรงกับเลขจริง
+    async function ensureFullyLoaded() {
+      if (fullyLoaded) return;
+      showLoading('taskContainer');
+      try {
+        const r = await apiGet({ action: 'getTasks', role: 'admin' }); // ไม่ส่ง recentOnly = โหลดครบทุกงาน
+        if (r.success) {
+          const known = new Set(allTasks.map(t => t.rowIndex));
+          r.tasks.forEach(t => { if (!known.has(t.rowIndex)) allTasks.push(t); });
+          fullyLoaded = true;
+          buildFilters(); // เผื่อมีคน/ประเภทที่โผล่แค่ในงานเก่า
+        }
+      } catch (e) { /* โหลดเพิ่มไม่สำเร็จ ยังใช้ข้อมูลที่มีต่อได้ */ }
     }
 
     async function resetAndLoad() {
@@ -411,12 +432,13 @@
       await loadAll();
     }
 
-    // คำนวณ stats ทั้งหมดจาก allTasks โดยตรง — แหล่งข้อมูลเดียว ไม่มีสลับ
+    // คำนวณ stats จาก allTasks — ยกเว้น "งานทั้งหมด"/"เสร็จแล้ว" ใช้เลขจริงจาก getSummary เสมอ
+    // (เพราะ allTasks ตามปกติมีแค่งานยังไม่เสร็จ + เสร็จใน 30 วัน ไม่ใช่ยอดจริงทั้งหมด)
     function updateStats() {
-      const total      = allTasks.length;
+      const total      = (trueTotal !== null) ? trueTotal : allTasks.length;
       const notStarted = allTasks.filter(t => !t.status || t.status === 'ยังไม่เริ่ม').length;
       const inProgress = allTasks.filter(t => IN_PROGRESS.includes(t.status)).length;
-      const done       = allTasks.filter(t => t.status === 'เสร็จเรียบร้อย').length;
+      const done       = (trueDone !== null) ? trueDone : allTasks.filter(t => t.status === 'เสร็จเรียบร้อย').length;
       const near       = allTasks.filter(t => t.isNearDeadline && t.status !== 'เสร็จเรียบร้อย');
 
       const overdue = allTasks.filter(t => t.daysLeft !== null && t.daysLeft < 0 && t.status !== 'เสร็จเรียบร้อย');
@@ -531,12 +553,16 @@
     }
 
     // ===== CARD FILTER =====
-    function filterByCard(type) {
+    async function filterByCard(type) {
       // กดซ้ำ → reset กลับ all
       if (activeCard === type && type !== 'all') {
         activeCard = 'all';
       } else {
         activeCard = type;
+      }
+      // การ์ด "งานทั้งหมด"/"เสร็จแล้ว" โชว์เลขจริงทั้งหมด (ไม่ใช่แค่ 30 วัน) → ต้องโหลดของเก่ามาให้ครบก่อน ถึงจะเห็นรายการตรงกับเลข
+      if ((activeCard === 'all' || activeCard === 'done') && !fullyLoaded) {
+        await ensureFullyLoaded();
       }
       highlightCard(activeCard);
       applyFilter();
