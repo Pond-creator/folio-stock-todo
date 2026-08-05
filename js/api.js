@@ -81,3 +81,30 @@ function showLoading(id) {
 function showError(id, msg) {
   document.getElementById(id).innerHTML = `<div class="alert alert-danger">⚠️ ${msg}</div>`;
 }
+
+// ===== เติมเลข % ให้ spinner ทุกหน้าอัตโนมัติ (ดูโหลดได้จริง ไม่ต้องแก้ทีละหน้า) =====
+(function () {
+  function enhance(el) {
+    if (!el || el.dataset.pctEnhanced) return;
+    el.dataset.pctEnhanced = '1';
+    const pctSpan = document.createElement('span');
+    pctSpan.className = 'load-pct';
+    pctSpan.textContent = '0%';
+    el.appendChild(pctSpan);
+    let pct = 0;
+    const timer = setInterval(() => {
+      if (!el.isConnected) { clearInterval(timer); return; } // spinner ถูกแทนที่ด้วยข้อมูลจริงแล้ว
+      pct += pct < 60 ? 7 : pct < 85 ? 3 : 1; // เร็วตอนแรก ช้าลงเมื่อใกล้เต็ม
+      if (pct > 95) pct = 95; // ไม่วิ่งถึง 100 เอง รอข้อมูลจริงมาแทนที่
+      pctSpan.textContent = pct + '%';
+    }, 150);
+  }
+  function scan(root) {
+    if (root.classList && root.classList.contains('loading')) enhance(root);
+    if (root.querySelectorAll) root.querySelectorAll('.loading').forEach(enhance);
+  }
+  scan(document.body);
+  new MutationObserver(muts => {
+    muts.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) scan(n); }));
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();

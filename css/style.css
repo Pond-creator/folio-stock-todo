@@ -156,6 +156,7 @@ tr:hover td{background:#FAFBFC}
 .empty-state .icon{font-size:48px;margin-bottom:12px;display:block}
 .loading{display:flex;align-items:center;justify-content:center;padding:48px;gap:12px;color:#64748B}
 .spinner{width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#3B82F6;border-radius:50%;animation:spin .7s linear infinite}
+.load-pct{font-weight:700;color:#3B82F6;min-width:34px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ===== MISC ===== */
