@@ -368,6 +368,7 @@
     // ===== หน้า "งานเสร็จแล้ว" แบบแบ่งหน้าจริงจากเซิร์ฟเวอร์ (เบา ไม่โตตามเวลา) =====
     let doneView = false, donePage = 1, doneTotal = 0, doneTasksCache = [];
     const DONE_PAGE_SIZE = 20;
+    let isSavingTask = false; // กันกดบันทึกซ้ำในโมดัลอัปเดตงาน
 
     const PRIO = { 'ด่วนมาก':1,'ไม่เร่งด่วนแต่สำคัญ':2,'ไม่สำคัญแต่เร่งด่วน':3,'รอได้ไม่สำคัญ':4 };
     const IN_PROGRESS = ['กำลังวางแผน','ลงมือทำ','ติดตามผล'];
@@ -1022,10 +1023,12 @@
     }
 
     async function saveStatus() {
+      if (isSavingTask) return; // กันกดซ้ำ (เสริมจาก disable ปุ่ม เผื่อกดไวกว่า disabled จะมีผล)
       const t = allTasks.find(x => x.rowIndex === editRowIndex);
       if (!t) return;
       const btn = document.getElementById('updateSaveBtn');
-      btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
+      isSavingTask = true;
+      btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก... กรุณาอย่ากดซ้ำ';
 
       const status   = document.getElementById('uStatus').value;
       const percent  = PERCENT_MAP[status] || '0%';
@@ -1048,13 +1051,13 @@
         if ((iso || '') !== (editOrigDeadlineIso || '')) {
           if (!iso) {
             alert('กรุณาระบุ Deadline');
-            btn.disabled = false; btn.textContent = 'บันทึก';
+            isSavingTask = false; btn.disabled = false; btn.textContent = 'บันทึก';
             return;
           }
           const note = document.getElementById('uDeadlineNote').value.trim();
           if (!note) {
             alert('กรุณาระบุเหตุผลการแก้ Deadline');
-            btn.disabled = false; btn.textContent = 'บันทึก';
+            isSavingTask = false; btn.disabled = false; btn.textContent = 'บันทึก';
             return;
           }
           payload.deadline = iso;   // ส่ง ISO ให้ backend แปลงเป็นวันที่จริง
@@ -1069,6 +1072,7 @@
       } catch(e) {
         alert('อัปเดตไม่สำเร็จ: ' + e.message);
       } finally {
+        isSavingTask = false;
         btn.disabled = false; btn.textContent = 'บันทึก';
       }
     }

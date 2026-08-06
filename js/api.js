@@ -5,12 +5,23 @@ function fetchWithTimeout(url, options = {}, ms = 30000) {
     .finally(() => clearTimeout(timer));
 }
 
-async function apiGet(params) {
+// ลองซ้ำอัตโนมัติเฉพาะ "อ่านข้อมูล" (GET) เท่านั้น — ปลอดภัยลองซ้ำได้เพราะไม่เขียนอะไร
+// (ต่างจาก apiPost ที่ appendRow ถ้าลองซ้ำอาจสร้างงานซ้ำ จึงตั้งใจไม่ retry ฝั่งเขียนข้อมูล)
+async function apiGet(params, retries = 2) {
   const url = new URL(CONFIG.API_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
-  const res = await fetchWithTimeout(url.toString(), { redirect: 'follow' });
-  if (!res.ok) throw new Error('Network error: ' + res.status);
-  return res.json();
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetchWithTimeout(url.toString(), { redirect: 'follow' });
+      if (!res.ok) throw new Error('Network error: ' + res.status);
+      return await res.json();
+    } catch (e) {
+      lastErr = e;
+      if (attempt < retries) await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
 }
 
 // อ่าน username จาก session ที่ login ไว้ในเบราว์เซอร์ (key เดียวกับ auth.js)

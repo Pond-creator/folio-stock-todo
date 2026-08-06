@@ -380,7 +380,10 @@
       document.getElementById('confirmModal').style.display = 'none';
     }
 
+    let isSubmittingTask = false; // กันกดซ้ำ (เสริมจาก disable ปุ่ม เผื่อกด/Enter ไวกว่า disabled จะมีผล)
+
     async function submitTask() {
+      if (isSubmittingTask) return;
       const task      = document.getElementById('aTask').value.trim();
       const types     = getMsValues('aType');
       const priority  = document.getElementById('aPriority').value;
@@ -393,8 +396,9 @@
       // แสดง loading บนปุ่มยืนยัน
       const btnConfirm = document.getElementById('btnConfirm');
       const btnEdit = document.getElementById('btnEdit');
+      isSubmittingTask = true;
       btnConfirm.disabled = true;
-      btnConfirm.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px"></span> กำลังบันทึก...';
+      btnConfirm.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px"></span> กำลังบันทึก... กรุณาอย่ากดซ้ำ';
       btnEdit.disabled = true;
 
       try {
@@ -424,11 +428,14 @@
         await loadRecentTasks();
         showSuccess('assignError', '✅ มอบหมายงานสำเร็จ');
       } catch (e) {
+        closeConfirm();
+        showErr('assignError', '❌ บันทึกไม่สำเร็จ: ' + e.message);
+      } finally {
+        // คืนสถานะปุ่มเสมอ ไม่ว่าสำเร็จ/พลาด — หน้านี้อยู่ต่อเพื่อมอบงานต่อได้เรื่อยๆ (ต่างจาก QC Report ที่เปลี่ยนหน้าหลังสำเร็จ)
+        isSubmittingTask = false;
         btnConfirm.disabled = false;
         btnConfirm.innerHTML = '✅ ยืนยัน มอบหมายงาน';
         btnEdit.disabled = false;
-        closeConfirm();
-        showErr('assignError', '❌ บันทึกไม่สำเร็จ: ' + e.message);
       }
     }
 
