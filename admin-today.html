@@ -269,18 +269,22 @@
             <input type="date" id="dateFrom">
             <span style="color:#64748B;font-size:13px">ถึง</span>
             <input type="date" id="dateTo">
-            <button class="btn btn-primary btn-sm" onclick="applyFilter()">ดู</button>
+            <button class="btn btn-primary btn-sm" onclick="refreshCurrentView()">ดู</button>
           </div>
+          <button id="btnShowDone" class="btn btn-sm" onclick="showDoneView(1)"
+            style="background:#16A34A;color:white;border:none;border-radius:8px;padding:6px 14px;font-family:Sarabun,sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-left:auto">
+            ✅ ดูงานเสร็จแล้ว
+          </button>
         </div>
         <!-- Other filters -->
         <div class="filter-bar" style="margin-top:10px;margin-bottom:0">
-          <select id="filterPerson" onchange="applyFilter()">
+          <select id="filterPerson" onchange="refreshCurrentView()">
             <option value="">ทุกคน</option>
           </select>
-          <select id="filterType" onchange="applyFilter()">
+          <select id="filterType" onchange="refreshCurrentView()">
             <option value="">ทุกประเภท</option>
           </select>
-          <select id="filterPriority" onchange="applyFilter()">
+          <select id="filterPriority" onchange="refreshCurrentView()">
             <option value="">ทุกระดับ</option>
             <option>ด่วนมาก</option>
             <option>ไม่เร่งด่วนแต่สำคัญ</option>
@@ -356,11 +360,14 @@
   <script src="js/api.js?v=2"></script>
   <script>
     let user, allTasks = [], filteredTasks = [], activeCard = 'all', activeDateFilter = 'all', editRowIndex = null, searchKeyword = '', editOrigDeadlineIso = '';
-    let searchExtraTasks = []; // ผลค้นหางานเก่า (เสร็จเกิน 30 วัน) จากเซิร์ฟเวอร์ ที่ยังไม่มีใน allTasks
-    let fullyLoaded = false;     // true = allTasks มีงานเก่าครบแล้ว (ไม่ใช่แค่ 30 วัน)
-    let trueTotal = null, trueDone = null; // เลขจริงทั้งหมด/เสร็จแล้ว (จาก getSummary) ไม่ขึ้นกับว่าโหลดเต็มหรือยัง
+    let searchExtraTasks = []; // ผลค้นหางานเก่าที่เซิร์ฟเวอร์เจอ (งานเสร็จแล้ว ที่ default ไม่โหลดมา) ยังไม่มีใน allTasks
+    let trueTotal = null, trueDone = null; // เลขจริงทั้งหมด/เสร็จแล้ว (จาก getSummary) ไม่ขึ้นกับว่าโหลดอะไรอยู่
     const PAGE_SIZE = 30;
     let currentPage = 1;
+
+    // ===== หน้า "งานเสร็จแล้ว" แบบแบ่งหน้าจริงจากเซิร์ฟเวอร์ (เบา ไม่โตตามเวลา) =====
+    let doneView = false, donePage = 1, doneTotal = 0, doneTasksCache = [];
+    const DONE_PAGE_SIZE = 20;
 
     const PRIO = { 'ด่วนมาก':1,'ไม่เร่งด่วนแต่สำคัญ':2,'ไม่สำคัญแต่เร่งด่วน':3,'รอได้ไม่สำคัญ':4 };
     const IN_PROGRESS = ['กำลังวางแผน','ลงมือทำ','ติดตามผล'];
@@ -389,10 +396,10 @@
 
     async function loadAll() {
       showLoading('taskContainer');
-      fullyLoaded = false; // โหลดใหม่ทุกครั้ง = กลับเป็นชุดย่อก่อนเสมอ
+      doneView = false; // โหลดใหม่ทุกครั้ง = กลับไปหน้างานที่ยังไม่เสร็จ (เบา)
       try {
         const [tr, sr] = await Promise.all([
-          apiGet({ action: 'getTasks', role: 'admin', recentOnly: '1' }),
+          apiGet({ action: 'getTasks', role: 'admin', recentOnly: '1' }), // ไม่รวมงานเสร็จแล้วเลย ดูงานเสร็จผ่านปุ่มแยกแทน
           apiGet({ action: 'getSummary' }) // ไม่ระบุปี = ยอดรวมทุกยุค เอาไว้โชว์เลขจริงในการ์ด (เบา ไม่ใช่รายละเอียดทุกงาน)
         ]);
         if (tr.success) allTasks = tr.tasks;
@@ -405,24 +412,99 @@
       } catch (e) { showError('taskContainer', e.message); }
     }
 
-    // โหลดข้อมูลทุกงาน (รวมงานเสร็จเก่าเกิน 30 วัน) — ใช้ตอนกดดูการ์ด "งานทั้งหมด"/"เสร็จแล้ว" ให้ตรงกับเลขจริง
-    async function ensureFullyLoaded() {
-      if (fullyLoaded) return;
+    // เรียกตอนเปลี่ยนตัวกรอง (คน/ประเภท/ระดับ/ช่วงเวลา) — ถ้ากำลังดูหน้างานเสร็จแล้วอยู่ ให้รีเฟรชหน้านั้นแทน applyFilter ปกติ
+    function refreshCurrentView() {
+      if (doneView) { showDoneView(1); }
+      else { applyFilter(); }
+    }
+
+    // "yyyy-MM-dd" จาก Date object (ใช้ส่งช่วงวันที่ให้เซิร์ฟเวอร์ตอนดูงานเสร็จแล้ว)
+    function toIsoDate(d) {
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    // ===== หน้างานเสร็จแล้ว (แบ่งหน้าจริงจากเซิร์ฟเวอร์ กรองตามตัวกรองที่เลือกไว้ทั้งหมด) =====
+    async function showDoneView(page) {
+      doneView = true;
+      donePage = page || 1;
+      activeCard = 'done';
+      highlightCard('done');
+      await loadDonePage();
+    }
+
+    async function loadDonePage() {
       showLoading('taskContainer');
+      const person   = document.getElementById('filterPerson').value;
+      const type     = document.getElementById('filterType').value;
+      const priority = document.getElementById('filterPriority').value;
+      const range    = getDateRange();
+      const params = { action: 'getDoneTasksPaged', page: donePage, pageSize: DONE_PAGE_SIZE };
+      if (person) params.person = person;
+      if (type) params.type = type;
+      if (priority) params.priority = priority;
+      if (range) { params.dateFrom = toIsoDate(range.from); params.dateTo = toIsoDate(range.to); }
       try {
-        const r = await apiGet({ action: 'getTasks', role: 'admin' }); // ไม่ส่ง recentOnly = โหลดครบทุกงาน
+        const r = await apiGet(params);
         if (r.success) {
-          const known = new Set(allTasks.map(t => t.rowIndex));
-          r.tasks.forEach(t => { if (!known.has(t.rowIndex)) allTasks.push(t); });
-          fullyLoaded = true;
-          buildFilters(); // เผื่อมีคน/ประเภทที่โผล่แค่ในงานเก่า
+          doneTasksCache = r.tasks;
+          doneTotal = r.total;
+          renderDoneView();
+          updateFilterPill();
         }
-      } catch (e) { /* โหลดเพิ่มไม่สำเร็จ ยังใช้ข้อมูลที่มีต่อได้ */ }
+      } catch (e) { showError('taskContainer', e.message); }
+    }
+
+    function renderDoneView() {
+      const dateLabel = activeDateFilter !== 'all' ? ` · ${DATE_LABEL[activeDateFilter]}` : '';
+      document.getElementById('listTitle').textContent = `✅ งานเสร็จแล้ว${dateLabel}`;
+      if (!doneTasksCache.length) {
+        document.getElementById('taskContainer').innerHTML =
+          '<div class="empty-state"><span class="icon">✅</span><p>ไม่มีงานที่ตรงเงื่อนไข</p></div>';
+        return;
+      }
+      const totalPages = Math.ceil(doneTotal / DONE_PAGE_SIZE);
+      document.getElementById('taskContainer').innerHTML =
+        taskTable(doneTasksCache) + renderDonePagination(doneTotal, totalPages);
+    }
+
+    function renderDonePagination(total, totalPages) {
+      if (totalPages <= 1) return '';
+      const from = (donePage - 1) * DONE_PAGE_SIZE + 1;
+      const to = Math.min(donePage * DONE_PAGE_SIZE, total);
+      let pages = '';
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= donePage - 2 && i <= donePage + 2)) {
+          pages += `<button onclick="showDoneView(${i})" style="
+            padding:6px 12px; border-radius:8px; border:1.5px solid ${i===donePage?'#16A34A':'#E2E8F0'};
+            background:${i===donePage?'#16A34A':'white'}; color:${i===donePage?'white':'#374151'};
+            font-family:Sarabun,sans-serif; font-size:13px; font-weight:600; cursor:pointer; min-width:36px;
+          ">${i}</button>`;
+        } else if (i === donePage - 3 || i === donePage + 3) {
+          pages += `<span style="color:#94A3B8;padding:0 4px">…</span>`;
+        }
+      }
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid #F1F5F9;flex-wrap:wrap;gap:8px">
+        <span style="font-size:13px;color:#64748B">แสดง ${from}–${to} จากทั้งหมด ${total} งาน</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button onclick="showDoneView(${donePage-1})" ${donePage===1?'disabled':''} style="
+            padding:6px 12px; border-radius:8px; border:1.5px solid #E2E8F0;
+            background:white; color:${donePage===1?'#CBD5E1':'#374151'};
+            font-family:Sarabun,sans-serif; font-size:13px; cursor:${donePage===1?'default':'pointer'};
+          ">‹ ก่อนหน้า</button>
+          ${pages}
+          <button onclick="showDoneView(${donePage+1})" ${donePage===totalPages?'disabled':''} style="
+            padding:6px 12px; border-radius:8px; border:1.5px solid #E2E8F0;
+            background:white; color:${donePage===totalPages?'#CBD5E1':'#374151'};
+            font-family:Sarabun,sans-serif; font-size:13px; cursor:${donePage===totalPages?'default':'pointer'};
+          ">ถัดไป ›</button>
+        </div>
+      </div>`;
     }
 
     async function resetAndLoad() {
       activeDateFilter = 'all';
       activeCard = 'all';
+      doneView = false;
       setDateBtnActive('dbAll');
       highlightCard('all');
       document.getElementById('filterPerson').value = '';
@@ -485,7 +567,7 @@
       const idMap = { all:'dbAll', today:'dbToday', yesterday:'dbYesterday', week:'dbWeek', month:'dbMonth', custom:'dbCustom' };
       setDateBtnActive(idMap[f]);
       document.getElementById('customRange').style.display = f === 'custom' ? 'flex' : 'none';
-      if (f !== 'custom') applyFilter();
+      if (f !== 'custom') refreshCurrentView();
     }
 
     function setDateBtnActive(id) {
@@ -560,10 +642,12 @@
       } else {
         activeCard = type;
       }
-      // การ์ด "งานทั้งหมด"/"เสร็จแล้ว" โชว์เลขจริงทั้งหมด (ไม่ใช่แค่ 30 วัน) → ต้องโหลดของเก่ามาให้ครบก่อน ถึงจะเห็นรายการตรงกับเลข
-      if ((activeCard === 'all' || activeCard === 'done') && !fullyLoaded) {
-        await ensureFullyLoaded();
+      // การ์ด "เสร็จแล้ว" → ไปหน้างานเสร็จแล้วแบบแบ่งหน้าจริง (เหมือนกดปุ่ม ✅ ดูงานเสร็จแล้ว)
+      if (activeCard === 'done') {
+        await showDoneView(1);
+        return;
       }
+      doneView = false;
       highlightCard(activeCard);
       applyFilter();
     }
@@ -694,6 +778,7 @@
       const clearBtn = document.getElementById('clearSearchBtn');
       if (clearBtn) clearBtn.style.display = searchKeyword ? '' : 'none';
       searchExtraTasks = [];
+      doneView = false; // ค้นหาสลับกลับมาหน้ารายการปกติ (ครอบคลุมทั้งงานเก่า+ใหม่ผ่านคำค้นหา)
 
       if (searchKeyword) {
         // หน้านี้โหลดแค่งานยังไม่เสร็จ + เสร็จใน 30 วัน ไว้เป็น default (เร็วขึ้น) — ตอนค้นหาให้หาในเซิร์ฟเวอร์ทั้งหมดด้วย เผื่อเป็นงานเก่า
@@ -720,9 +805,11 @@
     }
 
     function exportTasks() {
-      if (!filteredTasks.length) { alert('ไม่มีข้อมูลที่จะ Export'); return; }
+      const source = doneView ? doneTasksCache : filteredTasks;
+      if (!source.length) { alert('ไม่มีข้อมูลที่จะ Export'); return; }
+      if (doneView) alert(`หมายเหตุ: หน้านี้แบ่งหน้าไว้ จะ Export ได้แค่หน้าปัจจุบัน (${doneTasksCache.length} งานจากทั้งหมด ${doneTotal})`);
       const header = ['#','ภารกิจ/งาน','ประเภท','ความสำคัญ','Assign To','วันเริ่มงาน','Deadline','เหลือ (วัน)','ช่วงเวลา','สถานะ','ความคืบหน้า'];
-      const rows = filteredTasks.map(t => [
+      const rows = source.map(t => [
         t.seq, t.task, t.type||'', t.priority||'',
         t.assignTo, t.startDate||'', t.deadline||'',
         t.daysLeft !== null && t.daysLeft !== undefined ? t.daysLeft : '',
@@ -752,6 +839,7 @@
     function clearAllFilters() {
       activeCard = 'all';
       activeDateFilter = 'all';
+      doneView = false;
       highlightCard('all');
       setDateBtnActive('dbAll');
       document.getElementById('customRange').style.display = 'none';
@@ -1072,7 +1160,7 @@
       if (!confirm(`ลบงาน "${taskName}" ออกจากระบบและ Google Sheet ใช่ไหม?\n⚠️ ไม่สามารถกู้คืนได้`)) return;
       try {
         await apiPost({ action: 'deleteTask', rowIndex });
-        await loadAll();
+        if (doneView) { await loadDonePage(); } else { await loadAll(); }
       } catch(e) {
         alert('ลบไม่สำเร็จ: ' + e.message);
       }
