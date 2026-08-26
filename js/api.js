@@ -7,15 +7,16 @@ function fetchWithTimeout(url, options = {}, ms = 30000) {
 
 // ลองซ้ำอัตโนมัติเฉพาะ "อ่านข้อมูล" (GET) เท่านั้น — ปลอดภัยลองซ้ำได้เพราะไม่เขียนอะไร
 // (ต่างจาก apiPost ที่ appendRow ถ้าลองซ้ำอาจสร้างงานซ้ำ จึงตั้งใจไม่ retry ฝั่งเขียนข้อมูล)
-async function apiGet(params, retries = 1) {
+async function apiGet(params, retries = 2) {
   const url = new URL(CONFIG.API_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      // ครั้งแรกรอเต็ม 30 วิ (เผื่อช้าแต่จะสำเร็จ) / ครั้งลองซ้ำรอ 15 วิ
-      // กันไม่ให้ผู้ใช้ต้องรอรวมนานเกินไปก่อนเห็น error — กรณีแย่สุด ~46 วิ
-      const res = await fetchWithTimeout(url.toString(), { redirect: 'follow' }, attempt === 0 ? 30000 : 15000);
+      // วัดจริง 06/08/2026: ตอน GAS สำเร็จจะตอบใน 2-10 วิ / ตอนจะพลาดจะค้างยาว 20-45 วิ แล้วคาย 404
+      // (ปัญหาฝั่ง Google เอง สุ่มๆ ไม่เกี่ยวกับขนาดข้อมูล) → ตัดที่ 15 วิ แล้วลองใหม่ทันที
+      // ดีกว่ารอนานแล้วเจ๊งอยู่ดี — 3 โอกาส (โอกาสละ ~60%) ≈ สำเร็จ 94%, แย่สุดรอ ~48 วิ
+      const res = await fetchWithTimeout(url.toString(), { redirect: 'follow' }, 15000);
       if (!res.ok) throw new Error('Network error: ' + res.status);
       return await res.json();
     } catch (e) {
