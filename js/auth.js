@@ -47,6 +47,12 @@ function buildNavTabs(activePage) {
   }
   if (isAdmin) {
     tabs.push({ href: 'admin-summary.html', label: '📊 สรุปผล',       id: 'summary' });
+  }
+  // ปฏิทินงาน — หน้าดูข้อมูลอย่างเดียว เห็นได้ทั้ง admin/staff/monitor (ไม่รวม role user)
+  if (isAdmin || isStaff || isMonitor) {
+    tabs.push({ href: 'admin-calendar.html', label: '📅 ปฏิทินงาน', id: 'calendar' });
+  }
+  if (isAdmin) {
     tabs.push({ href: 'admin-base.html',    label: '⚙️ จัดการระบบ',   id: 'base'   });
     tabs.push({ href: 'admin-users.html',   label: '👤 จัดการ User',  id: 'users'  });
   }
