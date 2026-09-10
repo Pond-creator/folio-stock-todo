@@ -130,7 +130,6 @@
       <div class="card-header">
         <span class="card-title">📅 ปฏิทินงาน</span>
         <div class="cal-legend">
-          <span class="lg"><i style="background:#16A34A"></i> เสร็จแล้ว</span>
           <span class="lg"><i style="background:#D97706"></i> กำลังทำ</span>
           <span class="lg"><i style="background:#DC2626"></i> เกินกำหนด</span>
           <span class="lg"><i style="background:#94A3B8"></i> ยังไม่เริ่ม</span>
@@ -218,8 +217,8 @@
       document.getElementById('calContainer').innerHTML =
         '<div class="loading"><div class="spinner"></div> กำลังโหลด...</div>';
       try {
-        // ดึงงานทั้งหมด (ปฏิทินต้องเห็นทั้งงานที่ยังไม่เสร็จและงานที่เสร็จแล้วในเดือนนั้น)
-        const r = await apiGet({ action: 'getTasks', role: 'admin' });
+        // ปฏิทินแสดงแค่งานที่ยังไม่เสร็จ -> ใช้ recentOnly=1 ได้ (เบากว่าดึงทั้งหมด ~12 เท่า: 14KB vs 165KB)
+        const r = await apiGet({ action: 'getTasks', role: 'admin', recentOnly: '1' });
         if (!r.success) throw new Error(r.error || 'โหลดข้อมูลไม่สำเร็จ');
         allTasks = r.tasks;
         render();
@@ -270,21 +269,23 @@
 
       // จัดงานเข้าแต่ละวัน
       const byDay = {};
-      let inMonth = 0, doneCount = 0;
+      let inMonth = 0, overdueCount = 0;
       allTasks.forEach(t => {
+        if (isDone(t)) return;                 // งานจบแล้วไม่แสดงในปฏิทิน
         const day = dayOfTask(t);
         if (day === null) return;
         (byDay[day] = byDay[day] || []).push(t);
         inMonth++;
-        if (isDone(t)) doneCount++;
+        if (chipClass(t) === 'overdue') overdueCount++;
       });
-      // ในแต่ละวัน เรียงงานที่ยังไม่เสร็จขึ้นก่อน
+      // ในแต่ละวัน เรียงงานเกินกำหนดขึ้นก่อน
       Object.values(byDay).forEach(list =>
-        list.sort((a, b) => (isDone(a) ? 1 : 0) - (isDone(b) ? 1 : 0))
+        list.sort((a, b) => (chipClass(a) === 'overdue' ? 0 : 1) - (chipClass(b) === 'overdue' ? 0 : 1))
       );
 
       document.getElementById('calSummary').innerHTML =
-        `เดือนนี้มี <b>${inMonth}</b> งาน · เสร็จแล้ว <b style="color:#16A34A">${doneCount}</b> · ค้าง <b style="color:#D97706">${inMonth - doneCount}</b>`;
+        `เดือนนี้มีงานค้าง <b>${inMonth}</b> งาน` +
+        (overdueCount ? ` · เกินกำหนด <b style="color:#DC2626">${overdueCount}</b>` : '');
 
       const first = new Date(viewYear, viewMonth, 1);
       const startBlank = first.getDay();                       // 0=อาทิตย์
