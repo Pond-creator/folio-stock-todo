@@ -148,6 +148,14 @@
         <button class="mode-btn active" id="modeStart" onclick="setMode('start')">วันเริ่มงาน</button>
         <button class="mode-btn" id="modeDeadline" onclick="setMode('deadline')">Deadline</button>
 
+        <span style="width:1px;height:24px;background:#E2E8F0;margin:0 4px"></span>
+
+        <span style="font-size:13px;color:#374151;font-weight:600">ผู้ปฏิบัติงาน:</span>
+        <select id="filterPerson" onchange="onPersonChange()"
+                style="padding:6px 10px;border:1px solid #CBD5E1;border-radius:6px;font-size:13px;background:#fff;min-width:140px">
+          <option value="">ทุกคน</option>
+        </select>
+
         <span class="cal-sum" id="calSummary" style="margin-left:auto"></span>
       </div>
 
@@ -175,6 +183,7 @@
     let user, allTasks = [];
     let viewYear, viewMonth;            // เดือนที่กำลังดู (month = 0-11)
     let placeMode = 'start';            // 'start' = วางตามวันเริ่มงาน / 'deadline' = วางตาม Deadline
+    let personFilter = '';              // '' = ทุกคน / ชื่อคน = แสดงเฉพาะงานของคนนั้น
     let dayCache = {};                  // งานแยกตามวัน (ให้โมดัลใช้)
     const MAX_CHIPS = 4;                // โชว์ในช่องปฏิทินไม่เกินกี่งาน ที่เหลือกดดูในโมดัล
 
@@ -221,6 +230,7 @@
         const r = await apiGet({ action: 'getTasks', role: 'admin', recentOnly: '1' });
         if (!r.success) throw new Error(r.error || 'โหลดข้อมูลไม่สำเร็จ');
         allTasks = r.tasks;
+        fillPersons();
         render();
       } catch (e) {
         document.getElementById('calContainer').innerHTML =
@@ -247,6 +257,26 @@
 
     function isDone(t) { return t.status === 'เสร็จเรียบร้อย' || t.percent === '100%'; }
 
+    // แยกชื่อผู้ปฏิบัติงาน (ช่อง assignTo เก็บหลายคนคั่นด้วย , เหมือนหน้างานวันนี้)
+    function assigneesOf(t) {
+      return String(t.assignTo || '').split(',').map(x => x.trim()).filter(Boolean);
+    }
+    // เติมรายชื่อจากงานที่โหลดมาจริง (คนที่ไม่มีงานค้างจะไม่ขึ้นในช่อง)
+    function fillPersons() {
+      const names = [...new Set(allTasks.filter(t => !isDone(t)).flatMap(assigneesOf))].sort();
+      const sel = document.getElementById('filterPerson');
+      sel.innerHTML = '<option value="">ทุกคน</option>' +
+        names.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
+      if (names.includes(personFilter)) sel.value = personFilter; else personFilter = '';
+    }
+    function onPersonChange() {
+      personFilter = document.getElementById('filterPerson').value;
+      render();
+    }
+    function matchPerson(t) {
+      return !personFilter || assigneesOf(t).includes(personFilter);
+    }
+
     // งานนี้ควรอยู่วันไหนของปฏิทิน (คืนเลขวันที่ หรือ null ถ้าไม่อยู่ในเดือนที่ดู)
     function dayOfTask(t) {
       const d = parseThai(placeMode === 'start' ? t.startDate : t.deadline);
@@ -272,6 +302,7 @@
       let inMonth = 0, overdueCount = 0;
       allTasks.forEach(t => {
         if (isDone(t)) return;                 // งานจบแล้วไม่แสดงในปฏิทิน
+        if (!matchPerson(t)) return;           // กรองตามผู้ปฏิบัติงานที่เลือก
         const day = dayOfTask(t);
         if (day === null) return;
         (byDay[day] = byDay[day] || []).push(t);
@@ -284,6 +315,7 @@
       );
 
       document.getElementById('calSummary').innerHTML =
+        (personFilter ? `<b>${escHtml(personFilter)}</b> · ` : '') +
         `เดือนนี้มีงานค้าง <b>${inMonth}</b> งาน` +
         (overdueCount ? ` · เกินกำหนด <b style="color:#DC2626">${overdueCount}</b>` : '');
 
@@ -335,7 +367,9 @@
       document.getElementById('dayModalBody').innerHTML = list.map((t, i) => `
         <div class="day-row ${chipClass(t)}">
           <span class="n">${i + 1}.</span>
-          <span class="nm">${escHtml(t.task)}</span>
+          <span class="nm">${escHtml(t.task)}
+            <span style="display:block;font-weight:400;font-size:12px;color:#64748B">👤 ${escHtml(assigneesOf(t).join(', ')) || '-'}</span>
+          </span>
           <span class="dt">${shortDate(t.startDate)} → ${shortDate(t.deadline)}</span>
           <span class="pc">${t.percent || '0%'}</span>
         </div>`).join('') || '<div class="empty-state"><span class="icon">📋</span><p>ไม่มีงานในวันนี้</p></div>';
