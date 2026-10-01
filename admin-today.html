@@ -955,8 +955,8 @@
           ${isMonitor ? '' : `<td style="white-space:nowrap">
             ${isDone ? '' : `<button class="btn btn-outline btn-sm" onclick="openUpdate(${t.rowIndex})">อัปเดต</button>`}
             ${orderSelect}
-            ${isAdmin ? `<button class="btn btn-sm" style="color:#7C3AED;border:1.5px solid #DDD6FE;background:white;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:2px" onclick="openAuditLog(${t.rowIndex},'${escHtml(t.task)}')">ประวัติ</button>` : ''}
-            ${isAdmin ? `<button class="btn btn-sm" style="color:#EF4444;border:1.5px solid #FCA5A5;background:white;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:2px" onclick="confirmDeleteTask(${t.rowIndex},'${escHtml(t.task)}')">ลบ</button>` : ''}
+            ${isAdmin ? `<button class="btn btn-sm" style="color:#7C3AED;border:1.5px solid #DDD6FE;background:white;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:2px" onclick="openAuditLog(${t.rowIndex})">ประวัติ</button>` : ''}
+            ${isAdmin ? `<button class="btn btn-sm" style="color:#EF4444;border:1.5px solid #FCA5A5;background:white;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:2px" onclick="confirmDeleteTask(${t.rowIndex})">ลบ</button>` : ''}
           </td>`}
         </tr>`;
       }).join('');
@@ -1103,6 +1103,7 @@
 
     // ===== AUDIT LOG MODAL =====
     async function openAuditLog(rowIndex, taskName) {
+      taskName = taskName || taskNameOfRow(rowIndex);
       document.getElementById('auditTaskName').textContent = '📌 ' + taskName;
       document.getElementById('auditContent').innerHTML = '<div class="loading"><div class="spinner"></div> กำลังโหลด...</div>';
       document.getElementById('auditModal').style.display = 'flex';
@@ -1157,6 +1158,16 @@
     }
     function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+    // หาชื่องานจากเลขแถว — ใช้แทนการยัดชื่องานลงใน onclick
+    // เหตุผล: ชื่องานจริงมีทั้งเครื่องหมาย " และการขึ้นบรรทัดใหม่ (เช่น แถว 48 ...(6" x 9") + ขึ้นบรรทัด)
+    // ซึ่งทำให้ attribute onclick ขาดกลางคัน ปุ่ม "ลบ"/"ประวัติ" ของแถวนั้นพังทั้งปุ่ม
+    function taskNameOfRow(rowIndex) {
+      const t = allTasks.find(x => x.rowIndex === rowIndex)
+             || searchExtraTasks.find(x => x.rowIndex === rowIndex)
+             || doneTasksCache.find(x => x.rowIndex === rowIndex);
+      return t ? t.task : '';
+    }
+
     // แสดง/ซ่อนปุ่มรีเซ็ตลำดับ (เฉพาะ admin และมีลำดับที่กำหนดอยู่)
     function updateResetOrderBtn() {
       const btn = document.getElementById('resetOrderBtn');
@@ -1184,6 +1195,7 @@
     }
 
     async function confirmDeleteTask(rowIndex, taskName) {
+      taskName = taskName || taskNameOfRow(rowIndex);
       if (!confirm(`ลบงาน "${taskName}" ออกจากระบบและ Google Sheet ใช่ไหม?\n⚠️ ไม่สามารถกู้คืนได้`)) return;
       try {
         // ส่งชื่องานไปด้วย ถ้าแถวเลื่อนไปแล้วหลังบ้านจะไม่ยอมลบ (กันลบผิดงาน) และจะบันทึกลง audit log ทุกครั้ง
