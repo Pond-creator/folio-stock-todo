@@ -402,7 +402,7 @@
       btnEdit.disabled = true;
 
       try {
-        await apiPost({
+        const r = await apiPost({
           action: 'addTask',
           task,
           type: types.join(', '),
@@ -416,6 +416,8 @@
           percent: '0%',
           addedBy: user.username
         });
+        // เดิมไม่เคยอ่านค่าที่หลังบ้านตอบกลับ -> ถ้าหลังบ้าน error จะล้างฟอร์มเหมือนสำเร็จ งานหายไปเฉย ๆ
+        if (r && r.success === false) throw new Error(r.message || r.error || 'หลังบ้านปฏิเสธการบันทึก');
         document.getElementById('aTask').value = '';
         document.getElementById('aStartDate').value = '';
         document.getElementById('aDeadline').value = '';

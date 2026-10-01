@@ -263,7 +263,8 @@
       const btn = document.getElementById('confirmDeleteBtn');
       btn.disabled = true; btn.textContent = 'กำลังลบ...';
       try {
-        await apiPost({ action: 'deleteUser', rowIndex: deleteTarget });
+        const r = await apiPost({ action: 'deleteUser', rowIndex: deleteTarget });
+        if (r && r.success === false) throw new Error(r.message || 'ลบผู้ใช้ไม่สำเร็จ');
         closeConfirm();
         await loadUsers();
       } catch(e) {

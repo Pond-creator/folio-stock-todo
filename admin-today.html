@@ -129,7 +129,8 @@
       display: flex;
       gap: 0;
       white-space: nowrap;
-      animation: marquee-scroll 90s linear infinite;
+      /* ค่านี้เป็นแค่ค่าสำรองเผื่อวัดความกว้างไม่ได้ — ของจริง JS จะคำนวณให้ความเร็วคงที่ (ดู updateStats) */
+      animation: marquee-scroll 240s linear infinite;
       will-change: transform;
     }
     .marquee-inner:hover { animation-play-state: paused; }
@@ -533,9 +534,14 @@
       document.getElementById('sNear').textContent       = near.length;
       document.getElementById('sOverdue').textContent    = overdue.length;
 
+      // งานที่เกินกำหนดแล้วจะติดธง isNearDeadline ด้วย ถ้าไม่กรองออกจะโชว์ซ้ำ 2 รอบในแถบเดียวกัน
+      // (ตัวเลขบนการ์ดด้านบนยังนับแบบเดิมทุกอย่าง ไม่แตะ)
+      const overdueRows = new Set(overdue.map(t => t.rowIndex));
+      const nearOnly    = near.filter(t => !overdueRows.has(t.rowIndex));
+
       const alertItems = [
         ...overdue.map(t => `<span class="marquee-item"><span class="m-badge m-overdue">🔴 เกิน ${Math.abs(t.daysLeft)} วัน</span>${escHtml(t.task)}</span><span class="marquee-sep">·</span>`),
-        ...near.map(t   => `<span class="marquee-item"><span class="m-badge m-near">⚠️ ใกล้ Deadline</span>${escHtml(t.task)}</span><span class="marquee-sep">·</span>`)
+        ...nearOnly.map(t => `<span class="marquee-item"><span class="m-badge m-near">⚠️ ใกล้ Deadline</span>${escHtml(t.task)}</span><span class="marquee-sep">·</span>`)
       ];
       if (alertItems.length) {
         const inner = alertItems.join('');
@@ -546,6 +552,15 @@
               <div class="marquee-inner">${inner}${inner}</div>
             </div>
           </div>`;
+
+        // ความเร็วคงที่เสมอ — เดิมตั้ง animation 90 วินาทีตายตัว ทำให้ "งานค้างยิ่งเยอะ แถบยิ่งวิ่งเร็ว"
+        // เพราะต้องวิ่งระยะทางไกลขึ้นในเวลาเท่าเดิม → เปลี่ยนมาคิดเวลาจากความยาวจริงแทน
+        const innerEl   = document.querySelector('#nearAlert .marquee-inner');
+        const halfWidth = innerEl ? innerEl.scrollWidth / 2 : 0;   // หาร 2 เพราะเนื้อหาถูกวางซ้ำ 2 ชุด
+        if (halfWidth > 0) {
+          // 40 px/วินาที = อ่านทันสบาย ๆ และจะไม่เร็วขึ้นอีกไม่ว่างานจะเยอะแค่ไหน
+          innerEl.style.animationDuration = Math.max(30, Math.round(halfWidth / 40)) + 's';
+        }
       } else {
         document.getElementById('nearAlert').innerHTML = '';
       }
@@ -976,11 +991,14 @@
       if (t) t.adminOrder = val === '' ? null : val;
       sel.className = val !== '' ? 'order-select has-value' : 'order-select';
       try {
-        await apiPost({ action: 'updateAdminOrder', rowIndex, adminOrder: val });
+        // expectTask = ชื่องานที่หน้าจอเชื่อว่าอยู่แถวนี้ ให้หลังบ้านเทียบก่อนเขียน กันเขียนผิดแถว
+        const r = await apiPost({ action: 'updateAdminOrder', rowIndex, adminOrder: val, expectTask: t ? t.task : '' });
+        if (r && r.success === false) throw new Error(r.message || r.error || 'หลังบ้านปฏิเสธการบันทึก');
         updateResetOrderBtn();
         applyFilter();
       } catch(e) {
         alert('บันทึกไม่สำเร็จ: ' + e.message);
+        await loadAll();   // ดึงของจริงกลับมา ไม่ให้หน้าจอค้างค่าที่ไม่ได้บันทึก
       }
     }
 
@@ -1040,6 +1058,7 @@
       const payload = {
         action: 'editTask',
         rowIndex: editRowIndex,
+        expectTask: t.task,   // ให้หลังบ้านเทียบก่อนเขียน ถ้าแถวเลื่อน/มีคนแก้ไปแล้วจะไม่เขียนทับงานผิดตัว
         editor: user.name || user.username || '',
         status, percent, doneDate, assignTo
       };
@@ -1066,11 +1085,14 @@
       }
 
       try {
-        await apiPost(payload);
+        const r = await apiPost(payload);
+        // เดิมไม่เคยอ่านค่าที่หลังบ้านตอบกลับ -> หลังบ้าน error ก็ปิดหน้าต่างเหมือนสำเร็จ ข้อมูลหายเงียบ
+        if (r && r.success === false) throw new Error(r.message || r.error || 'หลังบ้านปฏิเสธการบันทึก');
         closeModal();
         await loadAll();
       } catch(e) {
-        alert('อัปเดตไม่สำเร็จ: ' + e.message);
+        alert('อัปเดตไม่สำเร็จ ข้อมูลยังไม่ถูกบันทึก\n\n' + e.message);
+        await loadAll();   // ดึงของจริงกลับมาให้เห็นสถานะที่ถูกต้อง
       } finally {
         isSavingTask = false;
         btn.disabled = false; btn.textContent = 'บันทึก';
@@ -1149,7 +1171,8 @@
       const btn = document.getElementById('resetOrderBtn');
       btn.disabled = true; btn.textContent = '⏳ กำลังรีเซ็ต...';
       try {
-        await apiPost({ action: 'resetAllOrders' });
+        const r = await apiPost({ action: 'resetAllOrders' });
+        if (r && r.success === false) throw new Error(r.message || r.error || 'หลังบ้านปฏิเสธการรีเซ็ต');
         allTasks.forEach(t => t.adminOrder = null);
         updateResetOrderBtn();
         applyFilter();
@@ -1163,10 +1186,13 @@
     async function confirmDeleteTask(rowIndex, taskName) {
       if (!confirm(`ลบงาน "${taskName}" ออกจากระบบและ Google Sheet ใช่ไหม?\n⚠️ ไม่สามารถกู้คืนได้`)) return;
       try {
-        await apiPost({ action: 'deleteTask', rowIndex });
+        // ส่งชื่องานไปด้วย ถ้าแถวเลื่อนไปแล้วหลังบ้านจะไม่ยอมลบ (กันลบผิดงาน) และจะบันทึกลง audit log ทุกครั้ง
+        const r = await apiPost({ action: 'deleteTask', rowIndex, expectTask: taskName });
+        if (r && r.success === false) throw new Error(r.message || r.error || 'หลังบ้านปฏิเสธการลบ');
         if (doneView) { await loadDonePage(); } else { await loadAll(); }
       } catch(e) {
-        alert('ลบไม่สำเร็จ: ' + e.message);
+        alert('ลบไม่สำเร็จ งานยังอยู่ในระบบ\n\n' + e.message);
+        if (doneView) { await loadDonePage(); } else { await loadAll(); }
       }
     }
 
