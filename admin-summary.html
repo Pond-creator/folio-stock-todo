@@ -15,7 +15,44 @@
       .progress-bar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .stat-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .pa-sort { display: none !important; }
+      .pa-card { break-inside: avoid; }
     }
+
+    /* ===== บทวิเคราะห์รายบุคคล (17/11/2569) ===== */
+    .pa-sort {
+      font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 99px; cursor: pointer;
+      border: 1.5px solid #DDD6FE; background: #fff; color: #6D28D9;
+    }
+    .pa-sort.active { background: #7C3AED; border-color: #7C3AED; color: #fff; }
+    .pa-note {
+      background: #EFF6FF; border: 1px solid #BFDBFE; color: #1E40AF;
+      border-radius: 10px; padding: 10px 14px; font-size: 13px; line-height: 1.7; margin-bottom: 14px;
+    }
+    .pa-card {
+      border: 1px solid #E2E8F0; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; background: #fff;
+    }
+    .pa-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .pa-rank {
+      width: 28px; height: 28px; border-radius: 50%; background: #F1F5F9; color: #475569;
+      font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .pa-card:nth-child(1) .pa-rank { background: #FEF3C7; color: #92400E; }
+    .pa-name { font-weight: 700; font-size: 15px; color: #0F172A; }
+    .pa-score { margin-left: auto; font-size: 13px; color: #6D28D9; font-weight: 700; }
+    .pa-metrics { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .pa-m {
+      font-size: 12px; padding: 3px 9px; border-radius: 6px; background: #F8FAFC;
+      border: 1px solid #E2E8F0; color: #334155; white-space: nowrap;
+    }
+    .pa-m b { color: #0F172A; }
+    .pa-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 760px) { .pa-lists { grid-template-columns: 1fr; } }
+    .pa-box { border-radius: 8px; padding: 9px 12px; font-size: 13px; line-height: 1.75; }
+    .pa-good { background: #F0FDF4; border: 1px solid #BBF7D0; color: #166534; }
+    .pa-watch { background: #FFFBEB; border: 1px solid #FDE68A; color: #92400E; }
+    .pa-box .t { font-weight: 700; display: block; margin-bottom: 3px; }
+    .pa-box ul { margin: 0; padding-left: 18px; }
   </style>
 </head>
 <body>
@@ -114,6 +151,22 @@
         </div>
       </div>
     </div>
+
+    <!-- ===== บทวิเคราะห์รายคน (เพิ่ม 17/11/2569) — เฉพาะคนที่ยังทำงานอยู่ ===== -->
+    <div class="card mb-24">
+      <div class="card-header" style="flex-wrap:wrap;gap:10px">
+        <span class="card-title">🧭 บทวิเคราะห์รายบุคคล</span>
+        <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:12px;color:#64748B">เรียงตาม</span>
+          <button type="button" class="pa-sort" data-sort="score"  onclick="setAnalysisSort('score')">คะแนนรวม</button>
+          <button type="button" class="pa-sort" data-sort="ontime" onclick="setAnalysisSort('ontime')">ตรงเวลา</button>
+          <button type="button" class="pa-sort" data-sort="volume" onclick="setAnalysisSort('volume')">ปริมาณงาน</button>
+        </span>
+      </div>
+      <div id="personAnalysis" data-sort="score" style="padding:0 16px 16px">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
   </div>
 
   <script src="js/config.js"></script>
@@ -171,6 +224,7 @@
     async function loadSummary() {
       document.getElementById('byPersonContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
       document.getElementById('byTypeContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      document.getElementById('personAnalysis').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
       const sel = document.getElementById('yearFilter');
       if (sel && sel.options.length > 1 && !rangeActive) selectedYear = sel.value;   // ผู้ใช้เลือกเอง
       const params = { action: 'getSummary' };
@@ -210,6 +264,7 @@
 
         renderByPerson(r.byPerson, r.activeAssignees || []);
         renderByType(r.byType);
+        renderPersonAnalysis(r.byPerson, r.activeAssignees || []);   // อัปเดตอัตโนมัติทุกครั้งที่โหลด/เปลี่ยนปี/เปลี่ยนช่วงวันที่
       } catch (e) {
         document.getElementById('byPersonContainer').innerHTML = `<div class="alert alert-danger" style="margin:16px">${e.message}</div>`;
       }
@@ -278,6 +333,161 @@
             <tbody>${rows}</tbody>
           </table>
         </div>`;
+    }
+
+    // ===================== บทวิเคราะห์รายบุคคล (17/11/2569) =====================
+    // อัปเดตอัตโนมัติทุกครั้งที่โหลดหน้า / เปลี่ยนปี / เลือกช่วงวันที่ (เรียกจาก loadSummary)
+    // ใช้ข้อมูลที่ getSummary ส่งมาอยู่แล้ว ไม่มี request เพิ่ม · ข้อความสร้างจากกฎ ไม่ได้ใช้ AI
+    // เก็บโหมดเรียงไว้ใน data-sort ของ element (ไม่ประกาศตัวแปร global ใหม่ — กันหน้าขาว)
+
+    function setAnalysisSort(mode) {
+      const box = document.getElementById('personAnalysis');
+      if (!box) return;
+      box.dataset.sort = mode;
+      if (summaryData) renderPersonAnalysis(summaryData.byPerson, summaryData.activeAssignees || []);
+    }
+
+    function paStats(b) {
+      const done = b.done || 0;
+      return {
+        total: b.total || 0,
+        done: done,
+        pending: b.pending || 0,
+        overdue: b.overduePending || 0,
+        urgent: b.urgent || 0,
+        veryLate: b.veryLate || 0,
+        onTime: b.doneOnTime || 0,
+        onTimePct: done > 0 ? (b.doneOnTime || 0) / done * 100 : 0,
+        urgentPct: (b.total || 0) > 0 ? (b.urgent || 0) / b.total * 100 : 0,
+        // บวก = เสร็จก่อนกำหนดเฉลี่ยกี่วัน · ลบ = เลยกำหนด
+        avgGap: (b.gapN || 0) > 0 ? (b.gapSum || 0) / b.gapN : null,
+        types: Object.keys(b.types || {}).map(k => [k, b.types[k]]).sort((x, y) => y[1] - x[1])
+      };
+    }
+
+    function renderPersonAnalysis(byPerson, activeAssignees) {
+      const box = document.getElementById('personAnalysis');
+      if (!box) return;
+      const active = (activeAssignees || []).map(s => String(s).trim()).filter(Boolean);
+      const rows = [];
+      active.forEach(name => {
+        const b = byPerson && byPerson[name];
+        if (b && b.total) rows.push({ name: name, s: paStats(b) });
+      });
+
+      if (!rows.length) {
+        box.innerHTML = '<div class="empty-state" style="padding:24px"><p>ยังไม่มีข้อมูลพอวิเคราะห์ในช่วงที่เลือก</p></div>';
+        return;
+      }
+
+      // ด่านกันแสดงข้อมูลผิด: ถ้าหลังบ้านยังเป็นเวอร์ชันเก่า (ยังไม่ส่งฟิลด์วิเคราะห์มา)
+      // ให้บอกตรง ๆ ว่ายังไม่พร้อม ดีกว่าโชว์ตัวเลข 0 แล้วสรุปผิด เช่น "ไม่มีงานช้าเกิน 7 วัน" ทั้งที่มี
+      const backendReady = Object.keys(byPerson || {}).some(k => byPerson[k] && typeof byPerson[k].gapN === 'number');
+      if (!backendReady) {
+        box.innerHTML = '<div class="alert" style="background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;'
+          + 'border-radius:10px;padding:14px 16px;font-size:14px;line-height:1.8">'
+          + '⏳ <b>ส่วนนี้รอหลังบ้านอัปเดตก่อน</b><br>'
+          + 'บทวิเคราะห์ต้องใช้ข้อมูลเพิ่มจาก Apps Script (งานด่วน · งานที่ช้ามาก · ประเภทงานที่ถนัด) '
+          + 'ซึ่งเวอร์ชันที่ใช้อยู่ยังไม่ได้ส่งมา<br>'
+          + '<span style="color:#A16207">ส่วนอื่นของหน้านี้ใช้งานได้ตามปกติทุกอย่าง</span></div>';
+        return;
+      }
+
+      // ค่าอ้างอิงของทีม
+      const sumDone   = rows.reduce((a, r) => a + r.s.done, 0);
+      const sumOnTime = rows.reduce((a, r) => a + r.s.onTime, 0);
+      const teamOnTime = sumDone > 0 ? sumOnTime / sumDone * 100 : 0;
+      const avgTotal   = rows.reduce((a, r) => a + r.s.total, 0) / rows.length;
+      const maxTotal   = Math.max.apply(null, rows.map(r => r.s.total)) || 1;
+      const maxUrgPct  = Math.max.apply(null, rows.map(r => r.s.urgentPct)) || 1;
+
+      // คะแนนรวม — เปิดสูตรให้เห็น จะได้อธิบายกับทีมได้
+      rows.forEach(r => {
+        const s = r.s;
+        r.score = s.onTimePct * 0.40
+                + (s.total / maxTotal * 100) * 0.30
+                + Math.max(0, 100 - s.overdue * 10) * 0.15
+                + (s.urgentPct / maxUrgPct * 100) * 0.15;
+      });
+
+      const mode = box.dataset.sort || 'score';
+      if (mode === 'ontime')      rows.sort((a, b) => b.s.onTimePct - a.s.onTimePct || b.s.done - a.s.done);
+      else if (mode === 'volume') rows.sort((a, b) => b.s.total - a.s.total);
+      else                        rows.sort((a, b) => b.score - a.score);
+
+      document.querySelectorAll('.pa-sort').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.sort === mode);
+      });
+
+      // หมายเหตุภาพรวม — สร้างจากข้อมูลจริง ไม่ได้เขียนตายตัว
+      const notes = ['ทีมส่งงานตรงเวลาเฉลี่ย <b>' + Math.round(teamOnTime) + '%</b> · รับงานเฉลี่ย <b>'
+                     + Math.round(avgTotal) + '</b> งาน/คน · เทียบเฉพาะคนที่ยังทำงานอยู่ ' + rows.length + ' คน'];
+      const busiest = rows.slice().sort((a, b) => b.s.total - a.s.total)[0];
+      if (busiest && busiest.s.onTimePct < teamOnTime) {
+        notes.push('⚠️ <b>' + escHtml(busiest.name) + '</b> รับงานมากที่สุด (' + busiest.s.total
+                 + ' งาน) แต่ตรงเวลา ' + Math.round(busiest.s.onTimePct)
+                 + '% ต่ำกว่าค่าเฉลี่ยทีม — มักเป็นสัญญาณว่า<b>งานล้นมือ</b> มากกว่าทำงานช้า');
+      }
+      notes.push('หมายเหตุ: งานส่วนใหญ่เป็นงานที่ทำร่วมกันหลายคน ตัวเลขช้า/ตรงเวลาจึงนับให้ทุกคนในงานนั้นเท่ากัน — ใช้ดูแนวโน้ม ไม่ควรใช้ตัดสินรายคนเพียงอย่างเดียว');
+
+      const cards = rows.map((r, i) => {
+        const s = r.s, good = [], watch = [];
+
+        if (s.onTimePct >= teamOnTime + 5)
+          good.push('ส่งตรงเวลา <b>' + Math.round(s.onTimePct) + '%</b> สูงกว่าค่าเฉลี่ยทีม '
+                  + Math.round(s.onTimePct - teamOnTime) + ' จุด');
+        if (s.total >= avgTotal * 1.2)
+          good.push('รับงานมากถึง <b>' + s.total + '</b> งาน (เฉลี่ยทีม ' + Math.round(avgTotal) + ') เป็นกำลังหลักของทีม');
+        if (s.urgentPct >= 25)
+          good.push('รับงานด่วนมาก <b>' + s.urgent + '</b> งาน (' + Math.round(s.urgentPct) + '% ของงานตัวเอง) เป็นคนที่ทีมเรียกใช้ตอนเร่ง');
+        if (s.overdue <= 4)
+          good.push('งานค้างเลยกำหนดแค่ <b>' + s.overdue + '</b> งาน คุมงานค้างได้ดี');
+        if (s.veryLate === 0 && s.done > 50)
+          good.push('ไม่มีงานไหนช้าเกิน 7 วันเลยสักงาน');
+        if (s.types.length && s.done > 0 && s.types[0][1] >= s.done * 0.35)
+          good.push('ชำนาญงาน<b>' + escHtml(s.types[0][0]) + '</b>เป็นพิเศษ (' + s.types[0][1] + ' งาน)');
+
+        if (s.onTimePct < teamOnTime - 3)
+          watch.push('ส่งตรงเวลา <b>' + Math.round(s.onTimePct) + '%</b> ต่ำกว่าค่าเฉลี่ยทีม');
+        if (s.overdue >= 5)
+          watch.push('มีงานค้างเลยกำหนด <b>' + s.overdue + '</b> งาน ควรเคลียร์ก่อน');
+        if (s.veryLate > 0)
+          watch.push('มี <b>' + s.veryLate + '</b> งานที่ช้าเกิน 7 วัน ควรดูว่าติดอะไร');
+        if (s.avgGap !== null && s.avgGap < -1.5)
+          watch.push('เฉลี่ยส่งช้ากว่ากำหนด <b>' + Math.abs(s.avgGap).toFixed(1) + '</b> วัน');
+        if (s.types.length > 0 && s.types.length <= 3 && s.done > 80)
+          watch.push('งานกระจุกอยู่ไม่กี่ประเภท อาจลองเพิ่มงานประเภทอื่น');
+
+        const gapTxt = s.avgGap === null ? '-'
+          : (s.avgGap >= 0 ? 'เร็วกว่ากำหนด ' : 'ช้ากว่ากำหนด ') + Math.abs(s.avgGap).toFixed(1) + ' วัน';
+
+        return '<div class="pa-card">'
+          + '<div class="pa-head"><span class="pa-rank">' + (i + 1) + '</span>'
+          + '<span class="pa-name">' + escHtml(r.name) + '</span>'
+          + '<span class="pa-score">คะแนนรวม ' + r.score.toFixed(1) + '</span></div>'
+          + '<div class="pa-metrics">'
+          +   '<span class="pa-m">รับงาน <b>' + s.total + '</b></span>'
+          +   '<span class="pa-m">เสร็จ <b>' + s.done + '</b></span>'
+          +   '<span class="pa-m">ค้าง <b>' + s.pending + '</b></span>'
+          +   '<span class="pa-m">เลยกำหนด <b>' + s.overdue + '</b></span>'
+          +   '<span class="pa-m">ตรงเวลา <b>' + Math.round(s.onTimePct) + '%</b></span>'
+          +   '<span class="pa-m">งานด่วนมาก <b>' + s.urgent + '</b></span>'
+          +   '<span class="pa-m">เฉลี่ย <b>' + gapTxt + '</b></span>'
+          + '</div>'
+          + '<div class="pa-lists">'
+          +   '<div class="pa-box pa-good"><span class="t">💪 จุดแข็ง</span><ul>'
+          +     (good.length ? good.map(x => '<li>' + x + '</li>').join('') : '<li>ยังไม่มีตัวเลขที่โดดกว่าค่าเฉลี่ยทีม</li>')
+          +   '</ul></div>'
+          +   '<div class="pa-box pa-watch"><span class="t">👀 จุดที่ควรดู</span><ul>'
+          +     (watch.length ? watch.map(x => '<li>' + x + '</li>').join('') : '<li>ไม่มีจุดที่น่ากังวล</li>')
+          +   '</ul></div>'
+          + '</div></div>';
+      }).join('');
+
+      box.innerHTML = '<div class="pa-note">' + notes.join('<br>') + '</div>' + cards
+        + '<div style="font-size:12px;color:#94A3B8;margin-top:10px;line-height:1.7">'
+        + 'คะแนนรวม = ตรงเวลา 40% + ปริมาณงาน 30% + คุมงานค้าง 15% + รับงานด่วน 15% '
+        + '(คิดเทียบกันเองภายในทีม · เปลี่ยนเกณฑ์เรียงได้ที่ปุ่มด้านบน)</div>';
     }
 
     function renderByType(data) {
